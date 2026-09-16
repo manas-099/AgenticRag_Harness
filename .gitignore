@@ -1,0 +1,29 @@
+# Environment variables & secrets
+.env
+.env*.local
+.env.backup
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Local Vector Store & Data Storage
+qdrant_local_storage/
+qdrant_local_storage2/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+test_agent.ipynb

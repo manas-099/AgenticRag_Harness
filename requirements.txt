@@ -1,0 +1,12 @@
+# Core dependencies for test_agent.ipynb
+ipykernel
+firecrawl-anydoc
+docling
+pymupdf
+pydantic-settings
+langchain-text-splitters
+groq
+sentence-transformers
+qdrant-client[fastembed]
+rank-bm25
+langgraph
