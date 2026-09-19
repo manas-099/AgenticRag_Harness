@@ -1,5 +1,5 @@
 # Agentic RAG Harness
-
+```text
 agentic-rag-harness/
 ├── apps/
 │   ├── backend/
@@ -152,3 +152,5 @@ agentic-rag-harness/
 ├── .gitignore
 ├── .editorconfig
 └── README.md
+
+```
