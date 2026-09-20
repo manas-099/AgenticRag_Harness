@@ -1,0 +1,37 @@
+# Core
+pydantic>=2.6
+pydantic-settings>=2.2
+
+# API
+fastapi>=0.110
+uvicorn[standard]>=0.27
+
+# LLM clients
+requests>=2.31
+groq>=0.11
+
+# Agent orchestration
+langgraph>=0.2
+
+# Embeddings / rerank / NLI
+sentence-transformers>=3.0
+torch>=2.2
+
+# Vector store
+qdrant-client[fastembed]>=1.9
+
+# Sparse retrieval
+rank-bm25>=0.2.2
+
+# Chunking
+langchain-text-splitters>=0.2
+
+# Document parsing
+pymupdf>=1.24
+docling>=2.0
+firecrawl-anydoc>=0.1
+
+# Dev / testing
+pytest>=8.0
+pytest-mock>=3.14
+python-dotenv>=1.0
