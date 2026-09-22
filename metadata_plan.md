@@ -1,4 +1,4 @@
-```metadata
+
 # Final Plan — Page-Level Tagging + Contextual Preamble Pipeline
 
 ## 1. Goal
@@ -110,4 +110,3 @@ So the honest trade-off: **best case is cheaper and better; worst case is somewh
 Ready to move to building this in LangGraph — want me to start with Phase 1 (page agent node + worker pool) first, or sketch the full graph structure (all phases, edges, `Send` fan-out) before writing any code?
 
 
-```
