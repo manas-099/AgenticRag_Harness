@@ -8,7 +8,7 @@ Replace the current design (1 whole-doc tag call + 1 preamble call *per chunk*) 
 - Lets a supervisor step add cross-page relationship context to preambles — but only pay for that LLM call when there's actually something worth comparing (similarity-gated, not automatic).
 - Keeps everything auditable: original page-agent output is never overwritten, only appended to.
 
-## 2. The Pipeline, in Plain English
+## 2. The Pipeline
 
 **Phase 1 — Page Agents (parallel, worker pool of N)**
 Each page, independently and concurrently:
