@@ -24,7 +24,11 @@ class AgentState(TypedDict):
     validation_retries: int
 
     search_attempts: Annotated[list[str], operator.add]
-    registry_size_history: Annotated[list[int], operator.add]
+    # Set of retrieved chunk_ids after each dispatch, NOT a count. A plain
+    # count (e.g. 8, 8, 8) plateaus at top-K on any small corpus even when
+    # the actual chunks differ between reformulated searches, which caused
+    # false "stuck in loop" degrades after only 2-3 real iterations.
+    registry_size_history: Annotated[list[frozenset[str]], operator.add]
     retrieved_chunk_registry: dict[str, Chunk]
     scratchpad: Annotated[list[str], operator.add]
     action_history: Annotated[list[str], operator.add]

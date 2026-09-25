@@ -9,3 +9,5 @@ data/qdrant_local/
 .ruff_cache/
 dist/
 build/
+
+trash/

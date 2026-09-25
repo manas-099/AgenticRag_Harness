@@ -23,6 +23,10 @@ class ClaimExtractor:
         self.grammar = XGrammar(ClaimList, name="claim_extraction")
 
     def extract(self, answer_text: str, available_chunk_ids: list[str]) -> list[Claim]:
+        if not answer_text or not isinstance(answer_text, str) or not answer_text.strip():
+            logger.warning("Empty or non-string answer_text provided to ClaimExtractor — returning empty claims")
+            return []
+
         system_prompt = (
             "Extract every distinct factual claim from the given answer text. "
             "For each claim, list the chunk_id(s) that support it, using ONLY ids "
@@ -45,6 +49,8 @@ class ClaimExtractor:
             return self._regex_fallback(answer_text)
 
     def _regex_fallback(self, answer_text: str) -> list[Claim]:
+        if not answer_text or not isinstance(answer_text, str):
+            return []
         claims = []
         sentences = re.split(r"(?<=[.!?])\s+", answer_text)
         for sentence in sentences:

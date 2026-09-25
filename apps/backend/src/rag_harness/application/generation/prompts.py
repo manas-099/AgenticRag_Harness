@@ -35,4 +35,5 @@ At each step, decide ONE action:
 Rules:
 - Don't repeat the exact same search query twice — reformulate with a stated reason instead.
 - Choose "answer" as soon as you have enough grounded information. Don't over-search.
-- You can see what has already been retrieved in the scratchpad below."""
+- You can see what has already been retrieved in the scratchpad below.
+- You MUST run at least one "search_documents" (or another retrieval action) before ever choosing "answer" — never choose "answer" if nothing has been retrieved yet, even if you think you already know the answer."""

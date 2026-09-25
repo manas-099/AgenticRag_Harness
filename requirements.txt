@@ -1,12 +1,28 @@
-# Core dependencies for test_agent.ipynb
+# Core dependencies for rag_harness_medha_openrouter_groq_test.ipynb
 ipykernel
+python-dotenv          # loads .env → os.environ so pydantic-settings picks it up
+
+# PDF parsing & document ingestion
 firecrawl-anydoc
 docling
 pymupdf
+
+# Settings management (reads .env automatically)
 pydantic-settings
+
+# Chunking
 langchain-text-splitters
+
+# LLM clients
 groq
+openai                 # needed by OpenRouter client (uses openai-compatible API)
+
+# Embeddings & vector store
 sentence-transformers
 qdrant-client[fastembed]
+
+# Sparse retrieval
 rank-bm25
+
+# Agentic framework
 langgraph

@@ -57,9 +57,26 @@ class AgentDecisionEngine:
                 max_tokens=400,
                 temperature=0.0,
             )
-            decision = AgentDecision.model_validate_json(response)
+            clean_resp = response.strip()
+            if clean_resp.startswith("```"):
+                import re
+                clean_resp = re.sub(r"^```(?:json)?\s*", "", clean_resp)
+                clean_resp = re.sub(r"\s*```$", "", clean_resp)
+            try:
+                decision = AgentDecision.model_validate_json(clean_resp)
+            except Exception:
+                import re
+                match = re.search(r"(\{.*\})", clean_resp, re.DOTALL)
+                if match:
+                    decision = AgentDecision.model_validate_json(match.group(1))
+                else:
+                    action = "search_documents"
+                    if "action: answer" in clean_resp.lower() or ("answer" in clean_resp.lower() and "search" not in clean_resp.lower()):
+                        action = "answer"
+                    decision = AgentDecision(thought=clean_resp[:200], action=action, query=state.get("query"))
             logger.info(f"Agent decision: action={decision.action}, thought='{decision.thought[:80]}...'")
             return decision
         except Exception as e:
-            logger.error(f"Agent decision failed ({e}) — defaulting to 'answer' with whatever we have")
-            return AgentDecision(thought=f"Decision engine error: {e}", action="answer")
+            logger.error(f"Agent decision failed ({e}) — defaulting to 'search_documents' or 'answer'")
+            fallback_action = "search_documents" if not state.get("retrieved_chunk_registry") else "answer"
+            return AgentDecision(thought=f"Decision engine error: {e}", action=fallback_action, query=state.get("query"))

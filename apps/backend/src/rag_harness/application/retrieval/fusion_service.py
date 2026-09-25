@@ -51,12 +51,13 @@ class RetrievalFusionService:
         texts = [c.chunk.contextual_text for c in chunks]
         embeddings = np.array(self.embedder.encode(texts))
 
+        threshold = getattr(self.settings, "DEDUP_SIMILARITY_THRESHOLD", 0.92)
         keep_indices: list[int] = []
         for i in range(len(chunks)):
             is_duplicate = False
             for j in keep_indices:
                 sim = float(np.dot(embeddings[i], embeddings[j]))
-                if sim >= self.settings.DEDUP_SIMILARITY_THRESHOLD:
+                if sim >= threshold:
                     is_duplicate = True
                     break
             if not is_duplicate:

@@ -19,8 +19,25 @@ def _is_stuck_in_loop(state: AgentState, window: int) -> bool:
 def make_route_after_dispatch(settings: HarnessLoopSettings):
     def route_after_dispatch(state: AgentState) -> str:
         last_action = state["action_history"][-1] if state["action_history"] else None
+
         if last_action == "answer":
-            return "generate"
+            if not state["retrieved_chunk_registry"]:
+                # Defensive guard: never let "answer" through to generate_node
+                # with nothing retrieved. This happens when the decision LLM
+                # (especially a smaller/local model) jumps straight to
+                # "answer" on the very first turn without ever searching —
+                # generate_node would then correctly but unhelpfully degrade
+                # with no_chunks_retrieved despite the corpus having real,
+                # relevant content that was simply never queried.
+                # Force at least one real search attempt before allowing
+                # a straight-to-answer exit, unless loop limits are already
+                # exhausted (checked below, same as any other path).
+                state["scratchpad"] = [
+                    "System: 'answer' was chosen with no retrieved chunks — "
+                    "forcing a search before allowing an answer."
+                ]
+            else:
+                return "generate"
 
         if state["iteration"] >= state["max_iterations"]:
             state["degrade_reason"] = "max_iterations_exceeded"

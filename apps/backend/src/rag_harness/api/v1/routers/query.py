@@ -20,3 +20,15 @@ def query(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag_pipelin
 def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag_pipeline)):
     result = pipeline.answer_agentic(request.question)
     return AgenticQueryResponse(**result)
+
+
+@router.get("/graph")
+def query_graph(pipeline: RAGPipeline = Depends(get_rag_pipeline)):
+    """Mermaid source for the compiled agent graph — paste into
+    https://mermaid.live or render directly in a markdown viewer/README."""
+    compiled = pipeline.agentic_use_case.graph
+    try:
+        mermaid_src = compiled.get_graph().draw_mermaid()
+    except Exception as e:
+        mermaid_src = f"%% could not draw graph: {e}"
+    return {"mermaid": mermaid_src}

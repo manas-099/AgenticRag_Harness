@@ -35,3 +35,6 @@ firecrawl-anydoc>=0.1
 pytest>=8.0
 pytest-mock>=3.14
 python-dotenv>=1.0
+
+# Pretty terminal logging
+rich>=13.7

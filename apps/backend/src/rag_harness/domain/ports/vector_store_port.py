@@ -24,3 +24,11 @@ class VectorStorePort(ABC):
     @abstractmethod
     def count(self) -> int:
         raise NotImplementedError
+
+    @abstractmethod
+    def scroll_all_chunks(self, batch_size: int = 256) -> list[Chunk]:
+        """Return every chunk currently stored, for rebuilding derived
+        in-memory indexes (e.g. BM25) after a process restart. Qdrant is
+        the durable source of truth; anything kept only in process memory
+        must be reconstructible from here."""
+        raise NotImplementedError

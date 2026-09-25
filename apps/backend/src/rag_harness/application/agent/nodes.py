@@ -69,7 +69,7 @@ def make_tool_dispatch_node(agent_tools: AgentTools):
             logger.error(f"Tool execution failed: {e}")
             state["scratchpad"] = [f"Tool error: {e}"]
 
-        state["registry_size_history"] = [len(state["retrieved_chunk_registry"])]
+        state["registry_size_history"] = [frozenset(state["retrieved_chunk_registry"].keys())]
         return state
     return tool_dispatch_node
 

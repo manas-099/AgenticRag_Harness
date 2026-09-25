@@ -76,8 +76,8 @@ class GroqFallbackClient(LLMPort):
 
     def __init__(self, settings: GroqSettings):
         self.settings = settings
-        self.primary = GroqLLMClient(settings.GROQ_API_KEY, settings.GROQ_PRIMARY_MODEL, settings.GROQ_TIMEOUT_SECONDS)
-        self.fallback = GroqLLMClient(settings.GROQ_API_KEY, settings.GROQ_FALLBACK_MODEL, settings.GROQ_TIMEOUT_SECONDS)
+        self.primary = GroqLLMClient(settings.API_KEY, settings.PRIMARY_MODEL, settings.TIMEOUT_SECONDS)
+        self.fallback = GroqLLMClient(settings.API_KEY, settings.FALLBACK_MODEL, settings.TIMEOUT_SECONDS)
 
     def generate(
         self,
@@ -89,27 +89,27 @@ class GroqFallbackClient(LLMPort):
     ) -> str:
         last_error = None
 
-        for attempt in range(1, self.settings.GROQ_MAX_RETRIES_PER_MODEL + 1):
+        for attempt in range(1, self.settings.MAX_RETRIES_PER_MODEL + 1):
             try:
-                logger.info(f"Primary model attempt {attempt}/{self.settings.GROQ_MAX_RETRIES_PER_MODEL}")
+                logger.info(f"Primary model attempt {attempt}/{self.settings.MAX_RETRIES_PER_MODEL}")
                 return self.primary.generate(system_prompt, user_content, response_format, max_tokens, temperature)
             except RateLimitError as e:
                 last_error = f"rate_limit: {e}"
                 logger.warning(f"Primary rate-limited (attempt {attempt})")
-                if attempt < self.settings.GROQ_MAX_RETRIES_PER_MODEL:
-                    time.sleep(self.settings.GROQ_RETRY_DELAY_SECONDS)
+                if attempt < self.settings.MAX_RETRIES_PER_MODEL:
+                    time.sleep(self.settings.RETRY_DELAY_SECONDS)
             except Exception as e:
                 last_error = f"error: {e}"
                 logger.warning(f"Primary failed (attempt {attempt}): {e}")
-                if attempt < self.settings.GROQ_MAX_RETRIES_PER_MODEL:
-                    time.sleep(self.settings.GROQ_RETRY_DELAY_SECONDS)
+                if attempt < self.settings.MAX_RETRIES_PER_MODEL:
+                    time.sleep(self.settings.RETRY_DELAY_SECONDS)
 
-        logger.warning(f"Primary exhausted (last_error={last_error}) — switching to fallback={self.settings.GROQ_FALLBACK_MODEL}")
+        logger.warning(f"Primary exhausted (last_error={last_error}) — switching to fallback={self.settings.FALLBACK_MODEL}")
         try:
             return self.fallback.generate(system_prompt, user_content, response_format, max_tokens, temperature)
         except Exception as e:
             raise LLMClientError(
-                f"Both primary ({self.settings.GROQ_PRIMARY_MODEL}) and "
-                f"fallback ({self.settings.GROQ_FALLBACK_MODEL}) failed. "
+                f"Both primary ({self.settings.PRIMARY_MODEL}) and "
+                f"fallback ({self.settings.FALLBACK_MODEL}) failed. "
                 f"Primary: {last_error}. Fallback: {e}"
             )

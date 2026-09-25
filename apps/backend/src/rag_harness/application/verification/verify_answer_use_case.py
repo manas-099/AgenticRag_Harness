@@ -23,6 +23,16 @@ class VerifyAnswerUseCase:
         self.groundedness_checker = groundedness_checker
 
     def execute(self, answer_text: str, chunk_registry: dict[str, Chunk]) -> VerificationResult:
+        if not answer_text or not isinstance(answer_text, str) or not answer_text.strip():
+            logger.warning("Empty or non-string answer_text in VerifyAnswerUseCase")
+            return VerificationResult(
+                passed=False,
+                citation_valid=False,
+                hallucinated_chunk_ids=[],
+                groundedness_results=[],
+                feedback_for_retry="No valid draft answer was generated.",
+            )
+
         available_ids = list(chunk_registry.keys())
         claims = self.claim_extractor.extract(answer_text, available_ids)
 

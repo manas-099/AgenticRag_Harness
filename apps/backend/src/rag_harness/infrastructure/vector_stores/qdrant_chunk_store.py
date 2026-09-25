@@ -24,7 +24,7 @@ class QdrantChunkStore(VectorStorePort):
     def __init__(self, embedding_settings: EmbeddingSettings, environment_settings: EnvironmentSettings):
         self.embedding_settings = embedding_settings
         self.environment_settings = environment_settings
-        self.collection_name = embedding_settings.QDRANT_COLLECTION
+        self.collection_name = getattr(embedding_settings, "QDRANT_COLLECTION", None) or environment_settings.QDRANT_COLLECTION
 
         if environment_settings.uses_remote_qdrant:
             logger.info(f"Connecting to remote Qdrant at {environment_settings.QDRANT_URL}")
@@ -114,6 +114,41 @@ class QdrantChunkStore(VectorStorePort):
         except Exception as e:
             logger.error(f"Scroll failed: {e}")
             raise RetrievalError(f"Scroll failed: {e}")
+
+    def scroll_all_chunks(self, batch_size: int = 256) -> list[Chunk]:
+        """Paginate through the entire collection and rebuild Chunk objects
+        (no filter, no vectors needed) — used at startup to repopulate the
+        in-memory BM25 index from Qdrant, the durable source of truth."""
+        chunks: list[Chunk] = []
+        offset = None
+        try:
+            while True:
+                points, offset = self.client.scroll(
+                    collection_name=self.collection_name,
+                    limit=batch_size,
+                    offset=offset,
+                    with_payload=True,
+                    with_vectors=False,
+                )
+                for p in points:
+                    payload = p.payload or {}
+                    chunks.append(
+                        Chunk(
+                            chunk_id=str(p.id),
+                            raw_text=payload.get("raw_text", ""),
+                            contextual_text=payload.get("contextual_text", ""),
+                            metadata=ChunkMetadata(
+                                **{k: v for k, v in payload.items() if k in ChunkMetadata.model_fields}
+                            ),
+                        )
+                    )
+                if offset is None:
+                    break
+            logger.info(f"scroll_all_chunks: rebuilt {len(chunks)} chunks from Qdrant")
+            return chunks
+        except Exception as e:
+            logger.error(f"scroll_all_chunks failed: {e}")
+            raise RetrievalError(f"scroll_all_chunks failed: {e}")
 
     def close(self) -> None:
         try:
