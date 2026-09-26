@@ -36,3 +36,5 @@ rag_harness_medha_openrouter_groq_test.ipynb
 qdrant_local_storage_sections/
 
 .vscode/
+
+apps/frontend/node_modules/
