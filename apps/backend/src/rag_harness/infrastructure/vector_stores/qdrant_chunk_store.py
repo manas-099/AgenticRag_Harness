@@ -36,7 +36,7 @@ class QdrantChunkStore(VectorStorePort):
         else:
             qdrant_path = environment_settings.qdrant_path
             logger.info(f"Using embedded local Qdrant at {qdrant_path}")
-            self.client = QdrantClient(path=qdrant_path)
+            self.client = QdrantClient(path=qdrant_path, force_disable_check_same_thread=True)
 
         self._ensure_collection()
 

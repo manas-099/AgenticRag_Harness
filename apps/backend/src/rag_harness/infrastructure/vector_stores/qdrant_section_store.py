@@ -39,7 +39,7 @@ class QdrantSectionStore:
             )
         else:
             section_path = environment_settings.qdrant_path.rstrip("/") + "_sections"
-            self.client = QdrantClient(path=section_path)
+            self.client = QdrantClient(path=section_path, force_disable_check_same_thread=True)
 
         self.sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
         self._ensure_collection()
