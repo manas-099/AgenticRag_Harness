@@ -13,8 +13,9 @@ export function DropZone() {
 
   function handleFiles(files: FileList | null) {
     if (!files) return;
-    Array.from(files).forEach((file) => void ingest(file.name));
+    Array.from(files).forEach((file) => void ingest(file));
   }
+
 
   return (
     <>

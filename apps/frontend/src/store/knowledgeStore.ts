@@ -15,7 +15,7 @@ import type { KnowledgeDocument } from "@/types/domain";
 interface KnowledgeStore {
   documents: KnowledgeDocument[];
   totalChunks: number;
-  ingest: (fileName: string) => Promise<void>;
+  ingest: (file: File) => Promise<void>;
 }
 
 function slugify(fileName: string): string {
@@ -30,11 +30,11 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
   documents: [],
   totalChunks: 0,
 
-  ingest: async (fileName: string) => {
-    const docId = slugify(fileName) || `doc_${Date.now()}`;
+  ingest: async (file: File) => {
+    const docId = slugify(file.name) || `doc_${Date.now()}`;
     const placeholder: KnowledgeDocument = {
       docId,
-      fileName,
+      fileName: file.name,
       version: "v1",
       chunkCount: 0,
       status: "ingesting",
@@ -42,7 +42,7 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
     set((s) => ({ documents: [placeholder, ...s.documents] }));
 
     try {
-      const result = await ingestDocument(fileName, docId, "v1");
+      const result = await ingestDocument(file, docId, "v1");
       set((s) => ({
         documents: s.documents.map((d) =>
           d.docId === docId ? { ...d, status: "ready", chunkCount: result.chunks_created } : d,

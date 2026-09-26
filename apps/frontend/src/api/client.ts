@@ -47,20 +47,25 @@ export async function apiRequest<TResponse>(
 ): Promise<TResponse> {
   const { method = "GET", body, signal } = options;
 
+  const isFormData = body instanceof FormData;
+
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     signal,
     headers: {
-      "Content-Type": "application/json",
+      // For FormData, let the browser set Content-Type (with boundary).
+      // For everything else, default to JSON.
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...buildLLMHeaders(),
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
   }).catch((err: unknown) => {
     throw new ApiError(
       err instanceof Error ? `Network error reaching backend: ${err.message}` : "Network error reaching backend",
       0,
     );
   });
+
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");

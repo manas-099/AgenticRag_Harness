@@ -1,28 +1,25 @@
 /**
- * documentsApi.ts — wrapper around POST /v1/documents.
+ * documentsApi.ts — wrapper around POST /v1/documents/upload.
  *
- * KNOWN GAP: the current backend endpoint ingests a file already sitting on
- * the SERVER's filesystem (`file_path`), not a browser-uploaded file — there
- * is no multipart upload route yet. Real drag-and-drop-from-browser ingest
- * needs a small backend addition:
- *
- *   @router.post("/documents/upload")
- *   async def upload_document(file: UploadFile, doc_id: str = Form(...)):
- *       tmp_path = save_to_disk(file)
- *       return ingest_use_case.execute(tmp_path, doc_id, "v1")
- *
- * Until that exists, this function sends the file's name as `file_path` —
- * it will only actually ingest something if a file of that name already
- * exists on the server (e.g. you've placed sample PDFs there for a demo).
- * The Knowledge panel is built to swap this over transparently once the
- * upload endpoint exists — see components/knowledge/DropZone.tsx.
+ * Sends the actual File object as multipart/form-data so the backend can
+ * save it to a temp directory, ingest it with PyMuPDF/Docling, and clean up.
+ * The previous stub that only sent `file_path: fileName` is replaced here;
+ * the old endpoint (POST /v1/documents with a JSON body) still exists on the
+ * backend for server-side scripting use cases.
  */
 import { apiRequest } from "@/api/client";
 import type { IngestDocumentResult } from "@/types/domain";
 
-export function ingestDocument(fileName: string, docId: string, docVersion = "v1"): Promise<IngestDocumentResult> {
-  return apiRequest<IngestDocumentResult>("/documents", {
+export function ingestDocument(file: File, docId: string, docVersion = "v1"): Promise<IngestDocumentResult> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("doc_id", docId);
+  form.append("doc_version", docVersion);
+
+  return apiRequest<IngestDocumentResult>("/documents/upload", {
     method: "POST",
-    body: { file_path: fileName, doc_id: docId, doc_version: docVersion },
+    // Pass FormData directly — apiRequest must NOT set Content-Type so
+    // the browser can set the correct multipart boundary automatically.
+    body: form,
   });
 }
