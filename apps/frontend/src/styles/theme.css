@@ -1,0 +1,100 @@
+/**
+ * theme.css
+ * ---------------------------------------------------------------------------
+ * Design tokens ported 1:1 from the RAG Harness Studio mockup, so the built
+ * app matches it exactly: dark surface stack, amber accent for "agent is
+ * working" states, teal for healthy/success states, JetBrains Mono for
+ * anything data-like (numbers, chunk ids, logs), Space Grotesk for UI chrome.
+ *
+ * Every component in this project reads colors from these CSS variables
+ * instead of hardcoding hex values, so the whole theme can be re-skinned by
+ * editing this one file.
+ */
+
+:root {
+  --bg: #0b0e13;
+  --surface-1: #12161d;
+  --surface-2: #171c25;
+  --surface-3: #1d232e;
+  --border: #242b37;
+  --border-strong: #333b4a;
+
+  --text-primary: #edeff3;
+  --text-secondary: #96a1b2;
+  --text-muted: #5e6779;
+
+  --amber: #e8a33d;
+  --amber-dim: #e8a33d22;
+  --teal: #4fd1c5;
+  --teal-dim: #4fd1c522;
+  --danger: #e5636a;
+  --danger-dim: #e5636a22;
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+::selection {
+  background: var(--amber-dim);
+  color: var(--text-primary);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+a {
+  color: inherit;
+}
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: inherit;
+}
