@@ -99,7 +99,7 @@ if "chat_history" not in st.session_state:
 
 
 def add_log(step_name: str, detail: str, level: str = "INFO"):
-    """Record an action step into the sidebar activity log."""
+    """Record an action step into the sidebar activity log. """
     ts = datetime.now().strftime("%H:%M:%S")
     entry = {
         "timestamp": ts,
@@ -376,7 +376,7 @@ with tab_query:
                                     st.success("Optimal Response")
 
                             # Expandable Step-by-Step Reasoner Trace
-                            with st.expander("🧠 Step-by-Step Agentic Reasoner Trace", expanded=True):
+                            with st.expander("🧠  Step-by-Step  Agentic Reasoner Trace ", expanded=True):
                                 if action_history:
                                     for idx, act in enumerate(action_history, 1):
                                         st.markdown(f"**Step {idx}:** `{act}`")
