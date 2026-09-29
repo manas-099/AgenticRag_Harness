@@ -1,4 +1,3 @@
-```markdown
 # Agentic RAG Harness
 
 A production-grade, agentic Retrieval-Augmented Generation system built
@@ -7,165 +6,190 @@ sequence — at every step it decides, via structured LLM output, whether to
 search, reformulate a failed search, fetch a specific page, compare two
 pieces of context, check a document's freshness, or answer. Every generated
 claim is checked against its cited source before being returned to the user.
+
 ```text
-agentic-rag-harness/
+agentic_rag_harness/
 ├── apps/
 │   ├── backend/
 │   │   ├── src/
 │   │   │   └── rag_harness/
 │   │   │       ├── __init__.py
-│   │   │       │
-│   │   │       ├── domain/                    # PURE business logic — no framework, no I/O libs
+│   │   │       ├── domain/                    # Pure business logic — models & abstract ports
 │   │   │       │   ├── __init__.py
-│   │   │       │   ├── models/                # Chunk, ChunkMetadata, Claim, AnswerResult, etc.
+│   │   │       │   ├── exceptions.py           # HarnessError hierarchy
+│   │   │       │   ├── models/                # Chunk, ChunkMetadata, RetrievalResult, Claim, etc.
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   ├── agent_state.py
 │   │   │       │   │   ├── chunk.py
 │   │   │       │   │   ├── retrieval.py
-│   │   │       │   │   ├── verification.py
-│   │   │       │   │   └── agent_state.py
-│   │   │       │   ├── exceptions.py           # HarnessError hierarchy
-│   │   │       │   └── ports/                  # ABSTRACT interfaces — the "contracts" infra must fulfill
-│   │   │       │       ├── llm_port.py         # BaseLLMClient (ABC)
-│   │   │       │       ├── vector_store_port.py
+│   │   │       │   │   └── verification.py
+│   │   │       │   └── ports/                  # Abstract interfaces (contracts)
+│   │   │       │       ├── __init__.py
+│   │   │       │       ├── document_parser_port.py
 │   │   │       │       ├── embedder_port.py
-│   │   │       │       └── document_parser_port.py
+│   │   │       │       ├── llm_port.py         # BaseLLMClient (ABC)
+│   │   │       │       └── vector_store_port.py
 │   │   │       │
-│   │   │       ├── application/                # USE CASES — orchestration logic, depends only on domain + ports
+│   │   │       ├── application/                # Use cases & orchestration logic
 │   │   │       │   ├── __init__.py
-│   │   │       │   ├── ingestion/
-│   │   │       │   │   ├── ingest_document_use_case.py
-│   │   │       │   │   ├── pdf_page_strategy.py
-│   │   │       │   │   ├── chunking_service.py
-│   │   │       │   │   └── quality_gate.py
-│   │   │       │   ├── retrieval/
-│   │   │       │   │   ├── retrieve_use_case.py
-│   │   │       │   │   ├── fusion_service.py    # RRF, dedup, rerank
-│   │   │       │   │   └── metadata_filter_service.py
-│   │   │       │   ├── generation/
+│   │   │       │   ├── rag_pipeline.py         # Pipeline orchestrator
+│   │   │       │   ├── agent/                  # LangGraph ReAct agent loop
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   ├── decision.py         # Action decision logic
+│   │   │       │   │   ├── graph_builder.py    # LangGraph state graph wiring
+│   │   │       │   │   ├── nodes.py            # Graph execution nodes
+│   │   │       │   │   ├── routing.py          # Conditional edge routing
+│   │   │       │   │   └── tools.py            # Agent tools
+│   │   │       │   ├── generation/             # Answer generation use cases & prompts
+│   │   │       │   │   ├── __init__.py
 │   │   │       │   │   ├── generate_answer_use_case.py
 │   │   │       │   │   └── prompts.py
-│   │   │       │   ├── verification/
-│   │   │       │   │   ├── verify_answer_use_case.py
-│   │   │       │   │   ├── citation_validator.py
-│   │   │       │   │   └── groundedness_checker.py
-│   │   │       │   └── agent/
-│   │   │       │       ├── agent_decision_service.py
-│   │   │       │       ├── tools.py
-│   │   │       │       ├── graph_builder.py     # LangGraph wiring
-│   │   │       │       └── run_agentic_query_use_case.py
+│   │   │       │   ├── ingestion/              # Ingestion, parsing & chunking pipeline
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   ├── contextual_chunker.py   # Preamble generation & chunking
+│   │   │       │   │   ├── file_router.py          # Route file to appropriate parser
+│   │   │       │   │   ├── ingest_document_use_case.py
+│   │   │       │   │   ├── section_title_extractor.py
+│   │   │       │   │   └── structure_aware_splitter.py
+│   │   │       │   ├── retrieval/              # Hybrid retrieval, RRF & filtering
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   ├── fusion_service.py       # RRF, deduplication, reranking
+│   │   │       │   │   ├── metadata_filter_service.py
+│   │   │       │   │   ├── model_registry.py
+│   │   │       │   │   ├── retrieve_use_case.py
+│   │   │       │   │   ├── section_candidate_selector.py
+│   │   │       │   │   └── section_filter_llm.py
+│   │   │       │   └── verification/           # Post-generation verification
+│   │   │       │       ├── __init__.py
+│   │   │       │       ├── citation_validator.py
+│   │   │       │       ├── claim_extractor.py
+│   │   │       │       ├── groundedness_checker.py # NLI entailment checker
+│   │   │       │       └── verify_answer_use_case.py
 │   │   │       │
-│   │   │       ├── infrastructure/              # CONCRETE implementations of the ports — swappable
+│   │   │       ├── infrastructure/              # Concrete implementations of ports
 │   │   │       │   ├── __init__.py
-│   │   │       │   ├── llm/
-│   │   │       │   │   ├── myllm_client.py
-│   │   │       │   │   ├── groq_client.py
-│   │   │       │   │   └── llm_factory.py
-│   │   │       │   ├── embeddings/
-│   │   │       │   │   └── sentence_transformer_embedder.py
-│   │   │       │   ├── vector_stores/
-│   │   │       │   │   ├── qdrant_chunk_store.py
-│   │   │       │   │   └── qdrant_section_store.py
-│   │   │       │   ├── sparse_search/
-│   │   │       │   │   └── bm25_retriever.py
+│   │   │       │   ├── cache/
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   └── in_memory_cache.py
 │   │   │       │   ├── document_parsers/
-│   │   │       │   │   ├── anydoc_parser.py
-│   │   │       │   │   └── docling_parser.py
-│   │   │       │   └── cache/
-│   │   │       │       ├── in_memory_cache.py
-│   │   │       │       └── redis_cache.py       # production swap-in, same interface
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   ├── anydoc_parser.py        # PyMuPDF fast-path text extraction
+│   │   │       │   │   ├── docling_parser.py       # Docling OCR & table parser
+│   │   │       │   │   ├── pdf_structural_classifier.py
+│   │   │       │   │   └── quality_gate.py         # Post-extraction quality heuristic
+│   │   │       │   ├── embeddings/
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   └── sentence_transformer_embedder.py
+│   │   │       │   ├── llm/
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   ├── chain.py
+│   │   │       │   │   ├── groq_client.py
+│   │   │       │   │   ├── health.py
+│   │   │       │   │   ├── llm_factory.py          # Groq, MyLLM, OpenRouter factory
+│   │   │       │   │   ├── myllm_client.py
+│   │   │       │   │   ├── openrouter_client.py
+│   │   │       │   │   └── xgrammar.py
+│   │   │       │   ├── sparse_search/
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   └── bm25_retriever.py
+│   │   │       │   └── vector_stores/
+│   │   │       │       ├── __init__.py
+│   │   │       │       ├── qdrant_chunk_store.py   # Chunk collection vector store
+│   │   │       │       └── qdrant_section_store.py # Section collection vector store
 │   │   │       │
-│   │   │       ├── api/                         # FastAPI — HTTP layer only, thin, no business logic
+│   │   │       ├── api/                         # FastAPI layer
 │   │   │       │   ├── __init__.py
-│   │   │       │   ├── main.py                  # app factory
-│   │   │       │   ├── dependencies.py          # DI wiring — builds use cases from settings
-│   │   │       │   ├── v1/
-│   │   │       │   │   ├── routers/
-│   │   │       │   │   │   ├── documents.py     # POST /v1/documents (ingest)
-│   │   │       │   │   │   ├── query.py         # POST /v1/query, /v1/query/agentic
-│   │   │       │   │   │   └── health.py
-│   │   │       │   │   └── schemas/             # request/response DTOs — NEVER expose domain models directly
-│   │   │       │   │       ├── document_schemas.py
-│   │   │       │   │       └── query_schemas.py
-│   │   │       │   └── middleware/
-│   │   │       │       ├── error_handler.py
-│   │   │       │       └── request_logging.py
+│   │   │       │   ├── dependencies.py          # Dependency injection container
+│   │   │       │   ├── main.py                  # FastAPI app factory
+│   │   │       │   ├── middleware/
+│   │   │       │   │   └── __init__.py
+│   │   │       │   └── v1/
+│   │   │       │       ├── __init__.py
+│   │   │       │       ├── routers/
+│   │   │       │       │   ├── __init__.py
+│   │   │       │       │   ├── documents.py     # POST /v1/documents (ingest)
+│   │   │       │       │   ├── health.py        # GET /v1/health
+│   │   │       │       │   └── query.py         # POST /v1/query, /v1/query/agentic
+│   │   │       │       └── schemas/
+│   │   │       │           ├── __init__.py
+│   │   │       │           ├── document_schemas.py
+│   │   │       │           └── query_schemas.py
 │   │   │       │
 │   │   │       ├── config/
-│   │   │       │   ├── settings.py              # Pydantic BaseSettings, env-layered
-│   │   │       │   └── logging_config.py
+│   │   │       │   ├── __init__.py
+│   │   │       │   ├── logging_config.py
+│   │   │       │   └── settings.py              # Pydantic BaseSettings
 │   │   │       │
 │   │   │       └── shared/
-│   │   │           └── utils.py
-│   │   │
-│   │   ├── tests/
-│   │   │   ├── unit/                            # mirrors src/ structure, mocks all ports
-│   │   │   │   ├── domain/
-│   │   │   │   ├── application/
-│   │   │   │   └── infrastructure/
-│   │   │   ├── integration/                     # real Qdrant (testcontainers), real API calls
-│   │   │   └── e2e/                             # full ingest -> query -> answer flow
+│   │   │           └── __init__.py
 │   │   │
 │   │   ├── scripts/
 │   │   │   ├── ingest_cli.py
 │   │   │   └── query_cli.py
 │   │   │
-│   │   ├── alembic/ or migrations/              # if you add a relational DB for users/sessions later
-│   │   ├── Dockerfile
-│   │   ├── pyproject.toml                       # deps, ruff/black/mypy config
+│   │   ├── tests/
+│   │   │   ├── unit/
+│   │   │   │   ├── application/
+│   │   │   │   │   ├── test_citation_validator.py
+│   │   │   │   │   ├── test_fusion_service.py
+│   │   │   │   │   ├── test_generate_node_degrade.py
+│   │   │   │   │   ├── test_metadata_filter_service.py
+│   │   │   │   │   ├── test_retrieve_use_case.py
+│   │   │   │   │   └── test_routing_premature_answer.py
+│   │   │   │   ├── domain/
+│   │   │   │   │   └── test_models.py
+│   │   │   │   └── infrastructure/
+│   │   │   │       ├── test_bm25_retriever_persistence.py
+│   │   │   │       └── test_qdrant_scroll_all_chunks.py
+│   │   │   ├── integration/
+│   │   │   └── e2e/
+│   │   │
+│   │   ├── frontend.py                          # Streamlit prototype UI
+│   │   ├── main.py
+│   │   ├── pyproject.toml
+│   │   ├── requirements.txt
+│   │   ├── uv.lock
 │   │   ├── .env.example
 │   │   └── README.md
 │   │
-│   └── frontend/
-│       ├── src/
-│       │   ├── app/                             # Next.js app router (or pages/ for CRA/Vite)
-│       │   │   ├── layout.tsx
-│       │   │   ├── page.tsx                     # chat/query UI
-│       │   │   └── documents/
-│       │   │       └── page.tsx                 # upload/manage documents UI
-│       │   ├── components/
-│       │   │   ├── chat/
-│       │   │   ├── upload/
-│       │   │   └── ui/                          # design system primitives
-│       │   ├── lib/
-│       │   │   ├── api-client.ts                # typed client for backend API
-│       │   │   └── types.ts                     # mirrors backend schemas
-│       │   ├── hooks/
-│       │   └── store/                           # state management (Zustand/Redux)
-│       ├── public/
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── Dockerfile
+│   └── frontend/                                # Frontend web application
 │
-├── packages/                                    # shared code between frontend/backend, if any
-│   └── shared-types/                             # e.g. OpenAPI-generated TS types from backend schemas
+├── packages/
+│   └── shared-types/
 │
 ├── infra/
-│   ├── docker-compose.yml                       # local dev: backend + frontend + qdrant + redis
-│   ├── docker-compose.prod.yml
-│   ├── k8s/                                      # if/when you deploy to a cluster
-│   │   ├── backend-deployment.yaml
-│   │   ├── frontend-deployment.yaml
-│   │   └── qdrant-statefulset.yaml
-│   └── terraform/                                # if managing cloud infra as code
+│   ├── k8s/
+│   └── terraform/
+│
+├── docs/
+│   └── adr/
+│
+├── experiments/
+│   ├── Agentic_rag_Harness.ipynb
+│   ├── INGESTION_README.md
+│   ├── RETRIEVAL_README.md
+│   ├── document_uploading_and_chunking.ipynb
+│   └── test_agent.ipynb
+│
+├── others/
+│   ├── comparison_report.xlsx
+│   ├── re3.csv
+│   ├── re4.csv
+│   └── test.py
 │
 ├── .github/
 │   └── workflows/
-│       ├── backend-ci.yml                        # lint, type-check, test on every PR
-│       └── frontend-ci.yml
 │
-├── docs/
-│   ├── architecture.md
-│   ├── api-reference.md
-│   └── adr/                                      # Architecture Decision Records — e.g. "why two-stage RRF over single-stage"
-│
-├── .gitignore
+├── generate_structure.py
+├── metadata_plan.md
+├── page_level_tagging_design_doc.md
+├── requirements.txt
 ├── .editorconfig
+├── .gitignore
 └── README.md
-
 ```
 
-
-
-
+---
 
 ## Core design principle
 
@@ -339,30 +363,14 @@ Swapping Qdrant for another vector store touches only
 `infrastructure/llm/`. Nothing in `application/` needs to change either way,
 because it depends on `domain/ports/`, not concrete classes.
 
-## Project structure
-
-```
-apps/
-├── backend/
-│   ├── src/rag_harness/
-│   │   ├── domain/            # models, ports, exceptions
-│   │   ├── application/       # ingestion, retrieval, generation, verification, agent
-│   │   ├── infrastructure/    # llm, embeddings, vector_stores, sparse_search, document_parsers, cache
-│   │   ├── api/                # FastAPI routers, schemas, dependency wiring
-│   │   └── config/             # settings, logging
-│   ├── scripts/                 # ingest_cli.py, query_cli.py
-│   ├── tests/                   # unit, integration, e2e
-│   ├── requirements.txt
-│   └── pyproject.toml
-└── frontend/                    # scaffolded, not yet built
-```
-
 ## Getting started
+
+### Backend
 
 ```bash
 cd apps/backend
 pip install -e .
-cp .env.example .env   # fill in MYLLM_AUTH_TOKEN, GROQ_API_KEY
+cp .env.example .env   # fill in MYLLM_AUTH_TOKEN, GROQ_API_KEY, OPENROUTER_API_KEY
 
 # Ingest a document
 python scripts/ingest_cli.py --file path/to/doc.pdf --doc-id doc1 --version v1
@@ -373,12 +381,23 @@ python scripts/query_cli.py --question "What is this document about?"
 # Ask a question via the full ReAct agent loop
 python scripts/query_cli.py --question "What is this document about?" --agentic
 
-# Or run the API
+# Or run the API server
 uvicorn rag_harness.api.main:app --reload
 ```
 
 API endpoints once running: `POST /v1/documents` (ingest), `POST /v1/query`,
 `POST /v1/query/agentic`, `GET /v1/health`.
+
+### Frontend
+
+```bash
+cd apps/frontend
+npm install
+cp .env.example .env   # set VITE_API_URL to backend URL
+npm run dev
+```
+
+---
 
 ## Running tests
 
@@ -388,6 +407,8 @@ pytest tests/unit                    # fast, no external dependencies
 RUN_E2E_TESTS=1 pytest tests/e2e     # requires real Qdrant + LLM backend configured
 ```
 
+---
+
 ## Known limitations / open work
 
 - **Section-title extraction** currently only reliably finds headers on
@@ -396,15 +417,15 @@ RUN_E2E_TESTS=1 pytest tests/e2e     # requires real Qdrant + LLM backend config
   filtering degrades safely to "unfiltered" in this case, but the extraction
   itself needs a real fix (read Docling's item type directly instead of
   regex-matching for `#`, plus a heuristic for plain-text pages).
-- Frontend is scaffolded but not implemented.
 - `InMemoryCache` is process-local — swap for `RedisCache` (implementing the
   same interface) before running more than one backend process.
 - Embedded/local Qdrant supports one process at a time — use a real Qdrant
   server (`QDRANT_URL` in `.env`) once more than one process needs the store.
 
+---
+
 ## Status
 
 Backend is feature-complete across all layers described above and has run
-successfully end-to-end in prototyping. Currently being hardened and
-migrated into this modular structure module by module.
-```
+successfully end-to-end in prototyping. Frontend (Vite + React) is implemented and
+connected to the backend API.
