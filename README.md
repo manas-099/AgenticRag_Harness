@@ -424,8 +424,3 @@ RUN_E2E_TESTS=1 pytest tests/e2e     # requires real Qdrant + LLM backend config
 
 ---
 
-## Status
-
-Backend is feature-complete across all layers described above and has run
-successfully end-to-end in prototyping. Frontend (Vite + React) is implemented and
-connected to the backend API.
