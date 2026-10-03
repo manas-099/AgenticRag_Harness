@@ -266,71 +266,91 @@ Generated answer
 
 ## 📁 Project Structure
 
+```
+  🏛️ domain          ──→       ⚡ application        ──→      🔧 infrastructure
+  ─────────────────            ─────────────────────           ─────────────────
+  Pure Python                  Orchestration &                 Concrete impls
+  No frameworks, no I/O        use cases only                  of domain ports
+  Models + contracts           Depends on domain               Swap freely
+       │                             │                               │
+       ▼                             ▼                               ▼
+  models/                      agent/                          vector_stores/
+  ports/                       retrieval/                      llm/
+                                ingestion/                      document_parsers/
+                                verification/                   embeddings/
+                                generation/                     sparse_search/
+
+                          🌐 api/  ←  thin HTTP shell only, no logic
+```
+
 <details>
-<summary><strong>Expand full tree</strong></summary>
+<summary><strong>📂 Full file tree</strong></summary>
 
 ```
-agentic_rag_harness/
-├── apps/
-│   ├── backend/
-│   │   ├── src/
-│   │   │   └── rag_harness/
-│   │   │       ├── domain/                    # Pure business logic — models & abstract ports
-│   │   │       │   ├── models/                # Chunk, ChunkMetadata, RetrievalResult, Claim
-│   │   │       │   │   ├── agent_state.py
-│   │   │       │   │   ├── chunk.py
-│   │   │       │   │   ├── retrieval.py
-│   │   │       │   │   └── verification.py
-│   │   │       │   └── ports/                 # Abstract interfaces (contracts)
-│   │   │       │       ├── document_parser_port.py
-│   │   │       │       ├── embedder_port.py
-│   │   │       │       ├── llm_port.py        # BaseLLMClient (ABC)
-│   │   │       │       └── vector_store_port.py
-│   │   │       │
-│   │   │       ├── application/               # Use cases & orchestration
-│   │   │       │   ├── rag_pipeline.py        # Pipeline orchestrator
-│   │   │       │   ├── agent/                 # LangGraph ReAct loop
-│   │   │       │   │   ├── decision.py        # Action decision logic
-│   │   │       │   │   ├── graph_builder.py   # State graph wiring
-│   │   │       │   │   ├── nodes.py           # Graph execution nodes
-│   │   │       │   │   ├── routing.py         # Conditional edge routing
-│   │   │       │   │   └── tools.py           # Agent tools
-│   │   │       │   ├── generation/            # generate_answer_use_case + prompts
-│   │   │       │   ├── ingestion/             # contextual_chunker, file_router, splitter
-│   │   │       │   ├── retrieval/             # fusion_service (RRF), reranking, filters
-│   │   │       │   └── verification/          # citation_validator, NLI groundedness
-│   │   │       │
-│   │   │       ├── infrastructure/            # Concrete implementations of ports
-│   │   │       │   ├── document_parsers/      # anydoc (PyMuPDF) + docling (OCR/tables)
-│   │   │       │   ├── embeddings/            # sentence_transformer_embedder
-│   │   │       │   ├── llm/                   # groq_client, myllm_client, openrouter_client
-│   │   │       │   │   └── llm_factory.py     # Groq · MyLLM · OpenRouter factory
-│   │   │       │   ├── sparse_search/         # bm25_retriever
-│   │   │       │   └── vector_stores/         # qdrant_chunk_store + qdrant_section_store
-│   │   │       │
-│   │   │       ├── api/                       # FastAPI — no logic, only routing
-│   │   │       │   └── v1/routers/            # documents, query, query/agentic, health
-│   │   │       │
-│   │   │       └── config/
-│   │   │           └── settings.py            # Pydantic BaseSettings
-│   │   │
-│   │   ├── scripts/
-│   │   │   ├── ingest_cli.py
-│   │   │   └── query_cli.py
-│   │   │
-│   │   └── tests/
-│   │       ├── unit/                          # Fast — no external dependencies
-│   │       ├── integration/
-│   │       └── e2e/                           # Requires Qdrant + LLM backend
-│   │
-│   └── frontend/
+📦 agentic_rag_harness/
 │
-├── experiments/                               # Notebooks for iterative dev
+├── 📱 apps/
+│   └── 🖥️  backend/
+│       ├── 📂 src/
+│       │   └── 📂 rag_harness/
+│       │       │
+│       │       ├── 🏛️  domain/                    # Pure business logic — no I/O, no frameworks
+│       │       │   ├── 📐 models/
+│       │       │   │   ├── 🧩 chunk.py             # Chunk + ChunkMetadata
+│       │       │   │   ├── 🤖 agent_state.py       # ReAct loop state
+│       │       │   │   ├── 🔍 retrieval.py         # RetrievalResult
+│       │       │   │   └── ✅ verification.py      # Claim + VerificationResult
+│       │       │   └── 🔌 ports/                   # Abstract contracts (ABCs)
+│       │       │       ├── llm_port.py             # BaseLLMClient
+│       │       │       ├── embedder_port.py
+│       │       │       ├── vector_store_port.py
+│       │       │       └── document_parser_port.py
+│       │       │
+│       │       ├── ⚡ application/                 # Use cases — depends only on domain
+│       │       │   ├── 📋 rag_pipeline.py          # Pipeline orchestrator
+│       │       │   ├── 🤖 agent/                   # LangGraph ReAct loop
+│       │       │   │   ├── decision.py             # Structured LLM action decision
+│       │       │   │   ├── graph_builder.py        # State graph wiring
+│       │       │   │   ├── nodes.py                # Graph execution nodes
+│       │       │   │   ├── routing.py              # Conditional edge routing
+│       │       │   │   └── tools.py                # Agent tools
+│       │       │   ├── ✍️  generation/              # Answer generation + prompts
+│       │       │   ├── 📥 ingestion/               # Chunker · splitter · file router
+│       │       │   ├── 🔍 retrieval/               # RRF · dedup · reranking · filters
+│       │       │   └── ✅ verification/            # Citation validator · NLI entailment
+│       │       │
+│       │       ├── 🔧 infrastructure/              # Concrete port implementations
+│       │       │   ├── 📄 document_parsers/        # PyMuPDF (fast) + Docling (OCR/tables)
+│       │       │   ├── 🧠 embeddings/              # SentenceTransformer embedder
+│       │       │   ├── 💬 llm/                     # Groq · MyLLM · OpenRouter
+│       │       │   │   └── llm_factory.py          # Single factory for all backends
+│       │       │   ├── 🔎 sparse_search/           # BM25 retriever
+│       │       │   └── 🗄️  vector_stores/          # Qdrant chunk + section collections
+│       │       │
+│       │       ├── 🌐 api/                         # FastAPI — routing only, zero logic
+│       │       │   └── v1/routers/
+│       │       │       ├── documents.py            # POST /v1/documents
+│       │       │       ├── query.py                # POST /v1/query · /v1/query/agentic
+│       │       │       └── health.py               # GET  /v1/health
+│       │       │
+│       │       └── ⚙️  config/
+│       │           └── settings.py                 # Pydantic BaseSettings
+│       │
+│       ├── 📜 scripts/
+│       │   ├── ingest_cli.py
+│       │   └── query_cli.py
+│       │
+│       └── 🧪 tests/
+│           ├── unit/                               # Fast — no external dependencies
+│           ├── integration/
+│           └── e2e/                                # Requires Qdrant + LLM backend
+│
+├── 🔬 experiments/                                 # Notebooks for iterative dev
 │   ├── Agentic_rag_Harness.ipynb
 │   ├── INGESTION_README.md
 │   └── RETRIEVAL_README.md
 │
-└── infra/
+└── 🏗️  infra/
     ├── k8s/
     └── terraform/
 ```
