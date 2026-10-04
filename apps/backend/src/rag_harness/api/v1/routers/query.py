@@ -1,37 +1,24 @@
 # =============================================================================
 # FILE: src/rag_harness/api/v1/routers/query.py
-# TARGET PATH IN PROJECT: apps/backend/src/rag_harness/api/v1/routers/query.py
-# REPLACES: existing query.py (full replacement)
+# TARGET PATH: apps/backend/src/rag_harness/api/v1/routers/query.py
+# REPLACES: previous query.py
 #
 # WHAT CHANGED:
-#   1. query_agentic() now maps the raw result dict into the richer
-#      AgenticQueryResponse: builds ActionStep list from action_history +
-#      scratchpad (thought text), passes validation_retries + token_budget_used.
+#   Agentic endpoint now checks the query cache BEFORE running the full
+#   LangGraph agent, and writes to cache AFTER a successful (non-degraded) run.
+#   Cache key: sha256(question + "::agentic::v1") — same pattern as standard.
+#   If cache hit: response includes from_cache=True flag for the frontend.
+#   Also returns from_cache in AgenticQueryResponse (new field added below).
 #
-#   2. NEW endpoint: GET /v1/query/agentic/last_state
-#      Returns the last completed AgentState snapshot as a plain dict.
-#      The frontend Debug Panel polls this (or reads it from the agentic
-#      response) to show live iteration/token/degrade info WITHOUT needing
-#      SSE or websockets. A module-level variable `_last_agent_state` is set
-#      by query_agentic() on each call — safe for single-worker dev use.
-#      For multi-worker production: replace with Redis/memcache.
-#
-#   3. GET /v1/query/graph is kept unchanged.
-#
-# WHY:
-#   The Debug Panel needs: per-step thoughts, iteration count, token budget,
-#   degrade reason. All this data is already in the AgentState after execute()
-#   — it just wasn't being returned. No application layer changes needed.
-#
-# WHERE IT CONNECTS:
-#   - schemas/query_schemas.py: AgenticQueryResponse, ActionStep
-#   - application/rag_pipeline.py: pipeline.answer_agentic() returns dict
-#     with keys: answer, sources_used, degraded, degrade_reason,
-#     iterations_used, validation_retries, action_history, (scratchpad added below)
-#   - graph_builder.py: RunAgenticQueryUseCase.execute() — we add scratchpad
-#     to its return dict so thoughts are accessible here.
+# WHY CACHE WASN'T WORKING:
+#   answer_agentic() in rag_pipeline.py calls agentic_use_case.execute()
+#   which goes straight into the LangGraph graph — it never touches the
+#   InMemoryCache. The standard pipeline hits cache in GenerateAnswerUseCase.
+#   Fix: wrap the agentic call here at the router level using the same cache
+#   instance (accessed via pipeline.cache).
 # =============================================================================
 
+import hashlib
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
@@ -42,9 +29,11 @@ from rag_harness.application.rag_pipeline import RAGPipeline
 
 router = APIRouter(prefix="/query", tags=["query"])
 
-# Module-level snapshot of the last completed agentic run's state.
-# Used by GET /v1/query/agentic/last_state for the Debug Panel.
 _last_agent_debug: dict = {}
+
+
+def _agentic_cache_key(question: str) -> str:
+    return hashlib.sha256(f"{question}::agentic::v1".encode()).hexdigest()
 
 
 @router.post("", response_model=QueryResponse)
@@ -61,26 +50,45 @@ def query(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag_pipelin
 @router.post("/agentic", response_model=AgenticQueryResponse)
 def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag_pipeline)):
     global _last_agent_debug
+
+    # --- Cache check (agentic) ---
+    cache_key = _agentic_cache_key(request.question)
+    cached_answer = pipeline.cache.query_cache.get(cache_key)
+    if cached_answer is not None:
+        # Rebuild a minimal response from cache
+        cached_debug = _last_agent_debug if _last_agent_debug.get("query") == request.question else {}
+        return AgenticQueryResponse(
+            answer=cached_answer,
+            sources_used=cached_debug.get("sources_used", []),
+            degraded=False,
+            degrade_reason=None,
+            iterations_used=cached_debug.get("iterations_used", 0),
+            validation_retries=0,
+            token_budget_used=0,
+            action_steps=[],
+            action_history=[],
+            from_cache=True,
+        )
+
+    # --- Full agent run ---
     result = pipeline.answer_agentic(request.question)
 
-    # Build structured ActionStep list.
-    # result["action_history"] is list[str] of action names.
-    # result["scratchpad"] (if present) is list[str] like
-    #   ["Thought: X | Action: Y", ...] — one entry per agent_decide_node call.
     raw_actions: list[str] = result.get("action_history", [])
     raw_scratchpad: list[str] = result.get("scratchpad", [])
 
     action_steps: list[ActionStep] = []
     for i, action in enumerate(raw_actions):
         thought = ""
-        # scratchpad entries are "Thought: ... | Action: ..." strings
         if i < len(raw_scratchpad):
             entry = raw_scratchpad[i]
             if "Thought:" in entry:
                 thought = entry.split("Thought:")[-1].split("|")[0].strip()
         action_steps.append(ActionStep(action=action, thought=thought, iteration=i + 1))
 
-    # Save debug snapshot for the /last_state endpoint
+    # --- Write to cache if not degraded ---
+    if not result.get("degraded", False) and result.get("answer"):
+        pipeline.cache.query_cache[cache_key] = result["answer"]
+
     _last_agent_debug = {
         "query": request.question,
         "degraded": result.get("degraded", False),
@@ -89,6 +97,7 @@ def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag
         "validation_retries": result.get("validation_retries", 0),
         "token_budget_used": result.get("token_budget_used", 0),
         "sources_count": len(result.get("sources_used", [])),
+        "sources_used": result.get("sources_used", []),
         "action_steps": [s.model_dump() for s in action_steps],
     }
 
@@ -101,21 +110,18 @@ def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag
         validation_retries=result.get("validation_retries", 0),
         token_budget_used=result.get("token_budget_used", 0),
         action_steps=action_steps,
-        action_history=raw_actions,  # keep flat list for backwards compat
+        action_history=raw_actions,
+        from_cache=False,
     )
 
 
 @router.get("/agentic/last_state")
 def get_last_agent_state():
-    """Returns a debug snapshot of the most recently completed agentic run.
-    Used by the frontend Debug Panel. No LLM call; just reads the cached dict.
-    Safe for single-worker dev. For multi-worker prod: use Redis instead."""
     return JSONResponse(content=_last_agent_debug)
 
 
 @router.get("/graph")
 def query_graph(pipeline: RAGPipeline = Depends(get_rag_pipeline)):
-    """Mermaid source for the compiled agent graph."""
     compiled = pipeline.agentic_use_case.graph
     try:
         mermaid_src = compiled.get_graph().draw_mermaid()
