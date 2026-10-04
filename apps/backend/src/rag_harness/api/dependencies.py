@@ -70,8 +70,9 @@ def get_rag_pipeline() -> RAGPipeline:
 
     vector_store = QdrantChunkStore(embedding_settings, environment_settings)
     section_store = QdrantSectionStore(environment_settings, embedding_settings, embedder)
+    # BM25 starts EMPTY every session — no rebuild from vector store.
+    # Only indexes chunks uploaded in this session via add_chunks().
     sparse_retriever = BM25Retriever()
-    sparse_retriever.rebuild_from_vector_store(vector_store)
     cache = InMemoryCache()
 
     classifier = PDFStructuralClassifier(get_ingestion_settings())

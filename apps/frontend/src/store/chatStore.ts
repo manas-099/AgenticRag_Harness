@@ -43,7 +43,8 @@ export const useChatStore = create<ChatStore>()(
       steps: [],
       stepPanelOpen: true,
 
-      setMode: (mode) => set({ mode }),
+      // mode is locked to agentic — Standard tab removed
+      setMode: (_mode) => {}, // no-op
       setStepPanelOpen: (open) => set({ stepPanelOpen: open }),
       clearHistory: () => set({ messages: [], steps: [] }),
 
@@ -68,79 +69,53 @@ export const useChatStore = create<ChatStore>()(
         set((s) => ({
           messages: [...s.messages, userMsg, loadingMsg],
           isRunning: true,
-          steps: get().mode === "agentic" ? buildInFlightSteps(0) : [],
+          steps: buildInFlightSteps(0),
         }));
 
         let stage = 0;
         if (inFlightTimer) clearInterval(inFlightTimer);
-        if (get().mode === "agentic") {
-          inFlightTimer = setInterval(() => {
-            stage = Math.min(stage + 1, 3);
-            set({ steps: buildInFlightSteps(stage) });
-          }, 900);
-        }
+        inFlightTimer = setInterval(() => {
+          stage = Math.min(stage + 1, 3);
+          set({ steps: buildInFlightSteps(stage) });
+        }, 900);
 
         try {
-          if (get().mode === "standard") {
-            const result = await runStandardQuery(question);
-            const assistantMsg: ChatMessage = {
-              id: loadingId,
-              role: "assistant",
-              content: stripCitations(result.answer),
-              timestamp: Date.now(),
-              agenticMeta: {
-                degraded: result.is_insufficient,
-                degrade_reason: result.is_insufficient ? "insufficient_context" : null,
-                iterations_used: 1,
-                validation_retries: 0,
-                token_budget_used: 0,
-                action_steps: [],
-                sources_used: result.sources_used,
-                from_cache: result.from_cache,
-              },
-            };
-            set((s) => ({
-              messages: s.messages.map((m) => (m.id === loadingId ? assistantMsg : m)),
-              steps: [],
-            }));
-          } else {
-            const result = await runAgenticQuery(question);
-            const assistantMsg: ChatMessage = {
-              id: loadingId,
-              role: "assistant",
-              content: stripCitations(result.answer),
-              timestamp: Date.now(),
-              agenticMeta: {
-                degraded: result.degraded,
-                degrade_reason: result.degrade_reason,
-                iterations_used: result.iterations_used,
-                validation_retries: result.validation_retries,
-                token_budget_used: result.token_budget_used,
-                action_steps: result.action_steps ?? [],
-                sources_used: result.sources_used,
-                from_cache: result.from_cache,
-              },
-            };
-            // If from cache, don't show step panel (no new steps)
-            const newSteps = result.from_cache
-              ? []
-              : parseActionHistory(result.action_history, result.degraded);
-
-            set((s) => ({
-              messages: s.messages.map((m) => (m.id === loadingId ? assistantMsg : m)),
-              steps: newSteps,
-            }));
-            useDebugStore.getState().setLastResult({
-              query: question,
+          const result = await runAgenticQuery(question);
+          const assistantMsg: ChatMessage = {
+            id: loadingId,
+            role: "assistant",
+            content: stripCitations(result.answer),
+            timestamp: Date.now(),
+            agenticMeta: {
               degraded: result.degraded,
               degrade_reason: result.degrade_reason,
               iterations_used: result.iterations_used,
               validation_retries: result.validation_retries,
               token_budget_used: result.token_budget_used,
-              sources_count: result.sources_used.length,
               action_steps: result.action_steps ?? [],
-            });
-          }
+              sources_used: result.sources_used,
+              from_cache: result.from_cache,
+            },
+          };
+          // If from cache, don't show step panel (no new steps)
+          const newSteps = result.from_cache
+            ? []
+            : parseActionHistory(result.action_history, result.degraded);
+
+          set((s) => ({
+            messages: s.messages.map((m) => (m.id === loadingId ? assistantMsg : m)),
+            steps: newSteps,
+          }));
+          useDebugStore.getState().setLastResult({
+            query: question,
+            degraded: result.degraded,
+            degrade_reason: result.degrade_reason,
+            iterations_used: result.iterations_used,
+            validation_retries: result.validation_retries,
+            token_budget_used: result.token_budget_used,
+            sources_count: result.sources_used.length,
+            action_steps: result.action_steps ?? [],
+          });
         } catch (err) {
           const errMsg: ChatMessage = {
             id: loadingId,

@@ -1,44 +1,7 @@
-// =============================================================================
-// FILE: src/components/config/ConfigSidebar.tsx
-// TARGET PATH: apps/frontend/src/components/config/ConfigSidebar.tsx
-// NEW FILE
-//
-// WHAT IT DOES:
-//   Left sidebar with collapsible config panel.
-//
-//   OPEN STATE (240px):
-//   ┌──────────────────────┐
-//   │ ⚙ Config      [⟨]   │
-//   │ ── Retrieval ──────  │
-//   │  Top-K      [5]      │
-//   │  Threshold  [0.7]    │
-//   │ ── Agent ──────────  │
-//   │  Max Iter   [3]      │
-//   │  Rescore    [0.8]    │
-//   │ ── Model ──────────  │
-//   │  LLM        [default]│
-//   └──────────────────────┘
-//
-//   CLOSED STATE (44px icon rail):
-//   ┌────┐
-//   │ ⚙  │  ← click to expand
-//   │    │
-//   │ 🎯 │
-//   │ 🤖 │
-//   │ 💾 │
-//   └────┘
-//   Hovering icons shows tooltip labels.
-//
-// WHY:
-//   Notes and images show left sidebar layout with collapsible config panel.
-//   Matches the ASCII wireframe from the user's notes exactly.
-//
-// WHERE IT CONNECTS:
-//   App.tsx (open, onToggle props)
-//   store/llmConfigStore.ts (LLM mode/custom config)
-// =============================================================================
+// ConfigSidebar.tsx
+// Stripped to LLM config only. Resizable via drag handle on right edge.
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useLLMConfigStore } from "@/store/llmConfigStore";
 import { LLM_PROVIDERS, type LLMProvider } from "@/types/llmConfig";
 import { useEffect } from "react";
@@ -50,48 +13,39 @@ interface ConfigSidebarProps {
   onToggle: () => void;
 }
 
-// Section header inside sidebar
-function SectionHead({ label, icon }: { label: string; icon: string }) {
-  return (
-    <div className="csb-section-head">
-      <span className="csb-section-icon">{icon}</span>
-      <span className="csb-section-label">{label}</span>
-    </div>
-  );
-}
-
-// Editable row: label + inline value input
-function ConfigRow({ label, value, onChange, type = "text" }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string;
-}) {
-  return (
-    <div className="csb-row">
-      <span className="csb-row-label">{label}</span>
-      <input
-        className="csb-row-input"
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
-  );
-}
-
 export function ConfigSidebar({ open, onToggle }: ConfigSidebarProps) {
   const { mode, custom, setMode, updateCustom } = useLLMConfigStore();
   const [llmHealth, setLlmHealth] = useState<LLMHealth | null>(null);
-
-  // Local retrieval/agent settings (display only — backend uses .env)
-  const [topK, setTopK] = useState("5");
-  const [threshold, setThreshold] = useState("0.7");
-  const [maxIter, setMaxIter] = useState("3");
-  const [rescore, setRescore] = useState("0.8");
+  const [width, setWidth] = useState(220);
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startW = useRef(0);
 
   useEffect(() => {
     fetchLLMHealth().then(setLlmHealth).catch(() => {});
   }, []);
 
-  // Collapsed icon rail
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    dragging.current = true;
+    startX.current = e.clientX;
+    startW.current = width;
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return;
+      const delta = ev.clientX - startX.current;
+      setWidth(Math.max(160, Math.min(400, startW.current + delta)));
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [width]);
+
   if (!open) {
     return (
       <aside className="csb-rail">
@@ -99,15 +53,13 @@ export function ConfigSidebar({ open, onToggle }: ConfigSidebarProps) {
           <span>⚙</span>
         </button>
         <div className="csb-rail-divider" />
-        <div className="csb-rail-icon" title="Retrieval">🎯</div>
-        <div className="csb-rail-icon" title="Agent">🤖</div>
         <div className="csb-rail-icon" title="Model">💾</div>
       </aside>
     );
   }
 
   return (
-    <aside className="csb-panel">
+    <aside className="csb-panel" style={{ width }}>
       {/* Header */}
       <div className="csb-header">
         <div className="csb-header-title">
@@ -118,18 +70,12 @@ export function ConfigSidebar({ open, onToggle }: ConfigSidebarProps) {
       </div>
 
       <div className="csb-body">
-        {/* Retrieval */}
-        <SectionHead label="Retrieval" icon="🎯" />
-        <ConfigRow label="Top-K" value={topK} onChange={setTopK} />
-        <ConfigRow label="Threshold" value={threshold} onChange={setThreshold} />
+        {/* Model / LLM */}
+        <div className="csb-section-head">
+          <span className="csb-section-icon">💾</span>
+          <span className="csb-section-label">Model</span>
+        </div>
 
-        {/* Agent */}
-        <SectionHead label="Agent" icon="🤖" />
-        <ConfigRow label="Max Iter" value={maxIter} onChange={setMaxIter} />
-        <ConfigRow label="Rescore" value={rescore} onChange={setRescore} />
-
-        {/* Model */}
-        <SectionHead label="Model" icon="💾" />
         <div className="csb-toggle-row">
           <button
             className={`csb-toggle-btn ${mode === "default" ? "active" : ""}`}
@@ -161,15 +107,35 @@ export function ConfigSidebar({ open, onToggle }: ConfigSidebarProps) {
                 ))}
               </select>
             </div>
-            <ConfigRow label="Model" value={custom.model} onChange={(v) => updateCustom({ model: v })} />
-            <ConfigRow label="API Key" value={custom.apiKey} onChange={(v) => updateCustom({ apiKey: v })} type="password" />
+            <div className="csb-row">
+              <span className="csb-row-label">Model</span>
+              <input
+                className="csb-row-input"
+                value={custom.model}
+                onChange={(e) => updateCustom({ model: e.target.value })}
+                placeholder="model name"
+              />
+            </div>
+            <div className="csb-row">
+              <span className="csb-row-label">API Key</span>
+              <input
+                className="csb-row-input"
+                type="password"
+                value={custom.apiKey}
+                onChange={(e) => updateCustom({ apiKey: e.target.value })}
+                placeholder="sk-…"
+              />
+            </div>
           </>
         )}
 
-        {/* LLM chain status */}
+        {/* Chain Status */}
         {llmHealth && (
           <>
-            <SectionHead label="Chain Status" icon="📡" />
+            <div className="csb-section-head" style={{ marginTop: 12 }}>
+              <span className="csb-section-icon">📡</span>
+              <span className="csb-section-label">Chain Status</span>
+            </div>
             {(["agent", "generate"] as const).map((role) => {
               const chain = llmHealth[role];
               return (
@@ -189,6 +155,9 @@ export function ConfigSidebar({ open, onToggle }: ConfigSidebarProps) {
           </>
         )}
       </div>
+
+      {/* Drag handle */}
+      <div className="csb-drag-handle" onMouseDown={onMouseDown} />
     </aside>
   );
 }

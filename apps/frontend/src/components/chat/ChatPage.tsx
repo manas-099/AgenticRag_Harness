@@ -30,7 +30,6 @@
 import { useChatStore } from "@/store/chatStore";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { ModeToggle } from "@/components/chat/ModeToggle";
 import { StepPanel } from "@/components/steps/StepPanel";
 
 export function ChatPage() {
@@ -40,9 +39,6 @@ export function ChatPage() {
   return (
     <div className="chat-page">
       <div className="chat-main">
-        <div className="chat-topbar">
-          <ModeToggle />
-        </div>
         <ChatWindow />
         <ChatInput />
       </div>

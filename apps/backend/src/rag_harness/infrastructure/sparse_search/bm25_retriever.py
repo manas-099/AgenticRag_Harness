@@ -26,23 +26,15 @@ class BM25Retriever:
         self.bm25 = BM25Okapi(tokenized)
         logger.info(f"Indexed {len(chunks)} chunks into BM25")
 
-    def rebuild_from_vector_store(self, vector_store) -> None:
-        """Repopulate this in-memory index from Qdrant (the durable source
-        of truth). Call this once at startup — BM25Retriever otherwise
-        starts empty on every process restart / `--reload`, silently
-        losing sparse search for everything ingested before the restart
-        even though the dense vectors are still safely in Qdrant."""
-        try:
-            chunks = vector_store.scroll_all_chunks()
-        except Exception as e:
-            logger.error(f"BM25 rebuild-from-store failed (starting with empty index): {e}")
+    def add_chunks(self, new_chunks: list[Chunk]) -> None:
+        """Add newly ingested chunks to the existing index.
+        Called by IngestDocumentUseCase after each document ingestion
+        so BM25 stays in sync with what was uploaded this session."""
+        if not new_chunks:
             return
-
-        if chunks:
-            self.index(chunks)
-            logger.info(f"BM25 index rebuilt from vector store: {len(chunks)} chunks")
-        else:
-            logger.info("BM25 rebuild-from-store: vector store is empty, nothing to index yet")
+        combined = self.corpus_chunks + new_chunks
+        self.index(combined)
+        logger.info(f"BM25 index updated: {len(self.corpus_chunks)} total chunks")
 
     def search(self, query: str, top_k: int) -> list[RetrievedChunk]:
         if self.bm25 is None:

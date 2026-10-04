@@ -1436,3 +1436,161 @@ select.csb-row-input { width: 100px; text-align: left; }
   background: var(--amber-dim);
   font-weight: 600;
 }
+
+/* ===== LIGHT THEME OVERRIDES ===== */
+
+/* Topbar */
+.topbar {
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+/* Chat bubbles light theme */
+.chat-bubble.user {
+  background: var(--accent);
+  color: #ffffff;
+}
+.chat-bubble.assistant {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.chat-bubble.assistant.degraded {
+  border-color: var(--danger);
+}
+
+/* Topbar tab active */
+.topbar-tab.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Mode toggle active */
+.mode-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Send button */
+.chat-send-btn {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Config sidebar light */
+.csb-panel {
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+}
+.csb-toggle-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+.csb-backend-pill.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Drag handle */
+.csb-drag-handle {
+  position: absolute;
+  top: 0; right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 150ms;
+}
+.csb-drag-handle:hover {
+  background: var(--accent);
+  opacity: 0.3;
+}
+.csb-panel { position: relative; }
+
+/* Markdown body inside bubbles */
+.markdown-body p { margin-bottom: 8px; }
+.markdown-body p:last-child { margin-bottom: 0; }
+.markdown-body strong { font-weight: 600; color: var(--text-primary); }
+.markdown-body ul, .markdown-body ol {
+  padding-left: 18px;
+  margin-bottom: 8px;
+}
+.markdown-body li { margin-bottom: 3px; line-height: 1.6; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+.markdown-body pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  overflow-x: auto;
+  margin-bottom: 8px;
+}
+.markdown-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* Step panel light */
+.step-panel-aside {
+  background: var(--surface-1);
+  border-left: 1px solid var(--border);
+}
+.iter-trace-header { background: var(--surface-2); }
+.iter-group {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+.iter-group-label { background: var(--surface-2); }
+
+/* Debug panel light */
+.debug-panel {
+  background: var(--surface-1);
+  border-left: 1px solid var(--border);
+}
+.debug-section {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+/* Ingest page light */
+.cache-card { background: var(--surface-1); border: 1px solid var(--border); }
+.doc-table-row { background: var(--surface-1); }
+.istat { background: var(--surface-1); border: 1px solid var(--border); }
+
+/* Status pill light */
+.status-pill {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+/* Thinking dots light */
+.thinking-dots span { background: var(--accent); }
+
+/* Cache hit chip */
+.msg-chip.cache-hit {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.msg-chip.teal {
+  color: var(--teal);
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}

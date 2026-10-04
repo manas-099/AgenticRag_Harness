@@ -56,9 +56,7 @@ class IngestDocumentUseCase:
                 chunk.embedding = emb
 
             self.vector_store.upsert_chunks(chunks)
-
-            self.sparse_retriever.corpus_chunks.extend(chunks)
-            self.sparse_retriever.index(self.sparse_retriever.corpus_chunks)
+            self.sparse_retriever.add_chunks(chunks)
 
             if self.section_store is not None:
                 self._resync_sections()

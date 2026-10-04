@@ -1,16 +1,7 @@
-// =============================================================================
-// FILE: src/components/chat/ChatWindow.tsx
-// TARGET PATH: apps/frontend/src/components/chat/ChatWindow.tsx
-// REPLACES: previous ChatWindow.tsx
-//
-// WHAT CHANGED:
-//   - Citations stripped via stripCitations() (done in chatStore, text is clean here)
-//   - Cache hit badge: when from_cache=true, shows a ⚡ cache hit chip
-//   - DegradedCard with human-readable reason (kept from v2)
-//   - Good answer chips: sources (teal), iter, cache hit (amber)
-// =============================================================================
+// ChatWindow.tsx — with markdown rendering + latex artifact stripping
 
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import { useChatStore } from "@/store/chatStore";
 import type { ChatMessage } from "@/types/domain";
 
@@ -50,6 +41,18 @@ const DEFAULT_DEGRADE = {
   hint: "Try rephrasing, or open the Debug Panel (⬡) for details.",
 };
 
+/** Strip latex artifacts the LLM sometimes outputs */
+function cleanAnswer(text: string): string {
+  return text
+    .replace(/\$\\rightarrow\$/g, "→")
+    .replace(/\$\\leftarrow\$/g, "←")
+    .replace(/\$\\Rightarrow\$/g, "⇒")
+    .replace(/\$\\cdot\$/g, "·")
+    .replace(/\$\\ldots\$/g, "…")
+    .replace(/\$([^$]+)\$/g, "$1")   // strip remaining inline latex delimiters
+    .trim();
+}
+
 function ThinkingDots() {
   return (
     <div className="thinking-dots">
@@ -59,7 +62,7 @@ function ThinkingDots() {
 }
 
 function DegradedCard({ reason }: { reason: string | null }) {
-  const info = (reason ? DEGRADE_MESSAGES[reason] : undefined) || DEFAULT_DEGRADE;
+  const info = (reason && DEGRADE_MESSAGES[reason]) ?? DEFAULT_DEGRADE;
   return (
     <div className="degraded-card">
       <div className="degraded-card-icon">⚠</div>
@@ -82,7 +85,7 @@ function MessageMeta({ msg }: { msg: ChatMessage }) {
   return (
     <div className="msg-meta">
       {meta.from_cache && (
-        <span className="msg-chip cache-hit" title="Served from cache — no agent run needed">
+        <span className="msg-chip cache-hit" title="Served from cache">
           ⚡ cache hit
         </span>
       )}
@@ -111,9 +114,9 @@ export function ChatWindow() {
     return (
       <div className="chat-window empty-state">
         <div className="empty-icon">⬡</div>
-        <div className="empty-title">Agentic RAG Harness</div>
+        <div className="empty-title">RAG Harness</div>
         <div className="empty-sub">
-          Ask a question — the agent will search, verify and synthesize an answer from your documents.
+          Ask a question — the agent searches, verifies and synthesizes an answer from your documents.
         </div>
       </div>
     );
@@ -123,17 +126,27 @@ export function ChatWindow() {
     <div className="chat-window">
       {messages.map((msg) => {
         const isDegraded = msg.agenticMeta?.degraded === true;
+        const hasPartialContent = isDegraded && msg.content?.trim();
         return (
           <div key={msg.id} className={`chat-row ${msg.role}`}>
             {msg.role === "assistant" && <div className="avatar">H</div>}
-            <div className={`chat-bubble ${msg.role} ${isDegraded ? "degraded" : ""}`}>
+            <div className={`chat-bubble ${msg.role} ${isDegraded && !hasPartialContent ? "degraded" : ""}`}>
               {msg.isLoading ? (
                 <ThinkingDots />
-              ) : isDegraded ? (
+              ) : isDegraded && !hasPartialContent ? (
                 <DegradedCard reason={msg.agenticMeta?.degrade_reason ?? null} />
               ) : (
                 <>
-                  <div className="bubble-text">{msg.content}</div>
+                  {hasPartialContent && (
+                    <div className="partial-answer-banner">
+                      ⚠ Partial answer — some claims could not be fully verified
+                    </div>
+                  )}
+                  <div className="bubble-text markdown-body">
+                    <ReactMarkdown>
+                      {cleanAnswer(msg.content)}
+                    </ReactMarkdown>
+                  </div>
                   <MessageMeta msg={msg} />
                 </>
               )}
