@@ -1,4 +1,3 @@
-
 """
 Dependency-injection wiring: builds the full object graph (infrastructure ->
 application -> RAGPipeline) once, from settings, for FastAPI's Depends()
@@ -27,7 +26,6 @@ from rag_harness.application.retrieval.section_candidate_selector import Section
 from rag_harness.application.retrieval.section_filter_llm import SectionFilterLLM
 from rag_harness.application.verification.citation_validator import CitationValidator
 from rag_harness.application.verification.claim_extractor import ClaimExtractor
-from rag_harness.application.verification.groundedness_checker import GroundednessChecker
 from rag_harness.application.verification.verify_answer_use_case import VerifyAnswerUseCase
 from rag_harness.config.settings import (
     get_chunking_settings,
@@ -73,19 +71,12 @@ def get_rag_pipeline() -> RAGPipeline:
     vector_store = QdrantChunkStore(embedding_settings, environment_settings)
     section_store = QdrantSectionStore(environment_settings, embedding_settings, embedder)
     sparse_retriever = BM25Retriever()
-    # Qdrant is the durable store; BM25Retriever's index is process-memory
-    # only and starts empty on every restart (including `uvicorn --reload`
-    # triggering on a source save). Rebuild it from Qdrant here so sparse
-    # search doesn't silently go dark for anything ingested before the
-    # most recent restart.
     sparse_retriever.rebuild_from_vector_store(vector_store)
     cache = InMemoryCache()
 
     classifier = PDFStructuralClassifier(get_ingestion_settings())
     file_router = FileRouter(classifier, AnyDocParser(), DoclingParser(), ExtractionQualityGate(get_ingestion_settings()))
     splitter = StructureAwareSplitter(get_chunking_settings())
-    # Contextual chunking preamble: cheap, high-volume calls -> generate_chain
-    # (never the agent chain, which should stay reserved for tool decisions).
     chunker = ContextualChunker(generate_chain, get_chunking_settings(), splitter)
     ingest_use_case = IngestDocumentUseCase(file_router, chunker, embedder, vector_store, sparse_retriever, section_store)
 
@@ -100,15 +91,12 @@ def get_rag_pipeline() -> RAGPipeline:
 
     claim_extractor = ClaimExtractor(generate_chain)
     citation_validator = CitationValidator()
-    groundedness_checker = GroundednessChecker(model_registry, get_nli_settings())
     verify_use_case = VerifyAnswerUseCase(
         claim_extractor=claim_extractor,
         citation_validator=citation_validator,
-        llm_client=generate_llm_client,  # uses same LLM chain as generation
+        llm_client=generate_chain,
     )
 
-    # The ReAct "what tool next?" decision uses the AGENT chain — kept
-    # separately configurable from generation (see LLM_AGENT_CHAIN in .env).
     agent_tools = AgentTools(retrieve_use_case, vector_store)
     decision_engine = AgentDecisionEngine(agent_chain)
     loop_settings = get_harness_loop_settings()
