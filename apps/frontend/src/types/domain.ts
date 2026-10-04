@@ -1,20 +1,52 @@
-/**
- * domain.ts
- * ---------------------------------------------------------------------------
- * Types mirroring the FastAPI backend's Pydantic response schemas
- * (see backend: src/rag_harness/api/v1/schemas/*). Keeping these in sync
- * with the backend is a manual contract for now — if you add/rename a field
- * in a Pydantic schema, update the matching type here.
- */
+// =============================================================================
+// FILE: src/types/domain.ts
+// TARGET PATH IN PROJECT: apps/frontend/src/types/domain.ts
+// REPLACES: existing domain.ts (full replacement)
+//
+// WHAT CHANGED:
+//   - ActionStep added: mirrors backend ActionStep (thought + action + iteration)
+//   - AgenticQueryResult.action_steps added (list of ActionStep)
+//   - AgenticQueryResult.token_budget_used + validation_retries added
+//   - ChatMessage type added: represents one turn in the persistent chat history
+//   - DebugState type added: shape of GET /v1/query/agentic/last_state response
+//
+// WHY:
+//   New Chat UI needs ChatMessage for the conversation thread.
+//   Debug Panel needs DebugState + ActionStep with thought text.
+//
+// WHERE IT CONNECTS:
+//   store/chatStore.ts (ChatMessage), store/debugStore.ts (DebugState),
+//   utils/parseActionHistory.ts (ActionStep), components/debug/DebugPanel.tsx
+// =============================================================================
 
-/** A single chunk of a source document, as returned in `sources_used`. */
-export interface SourceChunk {
-  chunk_id: string;
-  doc_id?: string;
-  page_num?: number;
+/** One structured step from the agent's ReAct loop. */
+export interface ActionStep {
+  action: string;    // e.g. "search_documents", "answer"
+  thought: string;   // agent's reasoning text
+  iteration: number; // 1-based iteration number
 }
 
-/** Response body of `POST /v1/query` (standard, non-agentic RAG). */
+/** A single message in the chat conversation. */
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+  // Only present on assistant messages from agentic mode
+  agenticMeta?: {
+    degraded: boolean;
+    degrade_reason: string | null;
+    iterations_used: number;
+    validation_retries: number;
+    token_budget_used: number;
+    action_steps: ActionStep[];
+    sources_used: string[];
+  };
+  // While streaming / in-flight
+  isLoading?: boolean;
+}
+
+/** Response body of POST /v1/query (standard, non-agentic RAG). */
 export interface StandardQueryResult {
   answer: string;
   sources_used: string[];
@@ -22,7 +54,7 @@ export interface StandardQueryResult {
   from_cache: boolean;
 }
 
-/** Response body of `POST /v1/query/agentic`. */
+/** Response body of POST /v1/query/agentic. */
 export interface AgenticQueryResult {
   answer: string;
   sources_used: string[];
@@ -30,10 +62,24 @@ export interface AgenticQueryResult {
   degrade_reason: string | null;
   iterations_used: number;
   validation_retries: number;
-  action_history: string[];
+  token_budget_used: number;
+  action_steps: ActionStep[];
+  action_history: string[]; // flat list kept for parseActionHistory compat
 }
 
-/** Response body of `GET /v1/health`. */
+/** Debug snapshot from GET /v1/query/agentic/last_state */
+export interface DebugState {
+  query: string;
+  degraded: boolean;
+  degrade_reason: string | null;
+  iterations_used: number;
+  validation_retries: number;
+  token_budget_used: number;
+  sources_count: number;
+  action_steps: ActionStep[];
+}
+
+/** Response body of GET /v1/health. */
 export interface BackendHealth {
   status: "ok" | string;
   qdrant_chunk_count: number;
@@ -43,7 +89,7 @@ export interface BackendHealth {
   retrieval_cache_size: number;
 }
 
-/** Per-role LLM chain status, one entry of `GET /v1/health/llm`. */
+/** Per-role LLM chain status. */
 export interface LLMChainStatus {
   role: "agent" | "generate";
   order: string[];
@@ -51,22 +97,18 @@ export interface LLMChainStatus {
   myllm_reachable?: boolean;
 }
 
-/** Response body of `GET /v1/health/llm`. */
 export interface LLMHealth {
   agent: LLMChainStatus;
   generate: LLMChainStatus;
 }
 
-/** Response body of `POST /v1/documents` (ingestion). */
+/** Response body of POST /v1/documents/upload (ingestion). */
 export interface IngestDocumentResult {
   doc_id: string;
   chunks_created: number;
 }
 
-/** A document shown in the Knowledge panel. The backend doesn't currently
- *  expose a "list all ingested documents" endpoint — this is tracked
- *  client-side as documents are ingested through this UI. See
- *  api/documents.ts and store/knowledgeStore.ts for details. */
+/** A document shown in the Ingest tab. Tracked client-side. */
 export interface KnowledgeDocument {
   docId: string;
   fileName: string;
@@ -76,9 +118,6 @@ export interface KnowledgeDocument {
   errorMessage?: string;
 }
 
-/** One step in the agent's ReAct pipeline, used to drive the step tracker
- *  UI (StepTracker + StepGraph). Steps are inferred client-side from
- *  `action_history` in the agentic response — see utils/parseActionHistory.ts. */
 export type AgentStepKind = "retrieve" | "evaluate" | "reretrieve" | "synthesize" | "answer";
 
 export interface AgentStep {
