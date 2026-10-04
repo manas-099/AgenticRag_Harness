@@ -1,61 +1,97 @@
-/**
- * Topbar.tsx — brand mark + live "backend healthy" / "N chunks indexed"
- * status pills, matching the mockup exactly. Polls GET /v1/health every
- * 15s; a failed poll flips the pill to the "warn" (red) dot state.
- */
+// =============================================================================
+// FILE: src/components/layout/Topbar.tsx
+// TARGET PATH IN PROJECT: apps/frontend/src/components/layout/Topbar.tsx
+// REPLACES: existing Topbar.tsx (full replacement)
+//
+// WHAT CHANGED:
+//   - Tab navigation added: Chat | Ingest | Config pills in the center
+//   - Debug Panel toggle button added on the right (bug icon, shows dot
+//     indicator when last run was degraded)
+//   - Health status dot kept from original
+//
+// WHY:
+//   The new tab-based layout needs global tab switching from the topbar.
+//   Debug Panel needs a persistent toggle that doesn't live inside any tab.
+//
+// WHERE IT CONNECTS:
+//   App.tsx passes activeTab + onTabChange
+//   store/debugStore.ts provides toggleOpen() + lastResult.degraded for the dot
+//   api/healthApi.ts polled every 30s for the status dot
+// =============================================================================
+
 import { useEffect, useState } from "react";
+import type { AppTab } from "@/App";
+import { useDebugStore } from "@/store/debugStore";
 import { fetchBackendHealth } from "@/api/healthApi";
-import type { BackendHealth } from "@/types/domain";
 
-const POLL_INTERVAL_MS = 15_000;
+interface TopbarProps {
+  activeTab: AppTab;
+  onTabChange: (tab: AppTab) => void;
+}
 
-export function Topbar() {
-  const [health, setHealth] = useState<BackendHealth | null>(null);
-  const [isHealthy, setIsHealthy] = useState(true);
+export function Topbar({ activeTab, onTabChange }: TopbarProps) {
+  const [healthy, setHealthy] = useState<boolean | null>(null);
+  const { toggleOpen, lastResult } = useDebugStore();
+  const hasWarn = lastResult?.degraded ?? false;
 
   useEffect(() => {
     let cancelled = false;
-
-    async function poll() {
+    async function check() {
       try {
-        const result = await fetchBackendHealth();
-        if (!cancelled) {
-          setHealth(result);
-          setIsHealthy(true);
-        }
+        await fetchBackendHealth();
+        if (!cancelled) setHealthy(true);
       } catch {
-        if (!cancelled) setIsHealthy(false);
+        if (!cancelled) setHealthy(false);
       }
     }
-
-    poll();
-    const id = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
+    check();
+    const t = setInterval(check, 30_000);
+    return () => { cancelled = true; clearInterval(t); };
   }, []);
 
+  const TABS: { id: AppTab; label: string }[] = [
+    { id: "chat", label: "Chat" },
+    { id: "ingest", label: "Ingest" },
+    { id: "config", label: "Config" },
+  ];
+
   return (
-    <div className="topbar">
+    <header className="topbar">
       <div className="brand">
-        <div className="brand-mark">RH</div>
+        <div className="brand-mark">H</div>
         <div className="brand-text">
-          <span className="name">RAG Harness Studio</span>
-          <span className="sub">langgraph · qdrant · fastapi</span>
+          <span className="name">RAG Harness</span>
+          <span className="sub">agentic · local</span>
         </div>
       </div>
 
+      <nav className="topbar-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`topbar-tab ${activeTab === t.id ? "active" : ""}`}
+            onClick={() => onTabChange(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
       <div className="top-status">
-        <span className="status-pill">
-          <span className={`status-dot ${isHealthy ? "" : "warn"}`} />
-          {isHealthy ? "backend healthy" : "backend unreachable"}
-        </span>
-        <span className="status-pill hide-mobile">
-          <span className="status-dot" />
-          {health ? `${health.qdrant_chunk_count} chunks indexed` : "…"}
-        </span>
+        {/* Debug panel toggle */}
+        <button className="debug-toggle-btn" onClick={toggleOpen} title="Open Debug Panel">
+          <span className="debug-icon">⬡</span>
+          {hasWarn && <span className="debug-dot warn" />}
+        </button>
+
+        {/* Backend health dot */}
+        <div className="status-pill">
+          <span className={`status-dot ${healthy === false ? "warn" : ""}`} />
+          <span className="hide-mobile">
+            {healthy === null ? "connecting…" : healthy ? "backend ok" : "backend offline"}
+          </span>
+        </div>
       </div>
-    </div>
+    </header>
   );
 }
