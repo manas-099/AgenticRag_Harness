@@ -21,8 +21,8 @@ def make_agent_decide_node(decision_engine: AgentDecisionEngine):
     def agent_decide_node(state: AgentState) -> AgentState:
         logger.info(f"[agent_decide_node] iteration={state['iteration']}")
         decision = decision_engine.decide(state)
-        state["scratchpad"] = [f"Thought: {decision.thought} | Action: {decision.action}"]
-        state["action_history"] = [decision.action]
+        state["scratchpad"] = state["scratchpad"] + [f"Thought: {decision.thought} | Action: {decision.action}"]
+        state["action_history"] = state["action_history"] + [decision.action]
         state["pending_decision"] = decision.model_dump()
         state["iteration"] += 1
         return state
@@ -40,7 +40,7 @@ def make_tool_dispatch_node(agent_tools: AgentTools):
                 results = agent_tools.search_documents(decision.get("query") or state["query"])
                 for rc in results:
                     state["retrieved_chunk_registry"][rc.chunk.chunk_id] = rc.chunk
-                state["search_attempts"] = [decision.get("query") or state["query"]]
+                state["search_attempts"] = state["search_attempts"] + [decision.get("query") or state["query"]]
 
             elif action == "search_documents_reformulated":
                 results = agent_tools.search_documents_reformulated(
@@ -48,7 +48,7 @@ def make_tool_dispatch_node(agent_tools: AgentTools):
                 )
                 for rc in results:
                     state["retrieved_chunk_registry"][rc.chunk.chunk_id] = rc.chunk
-                state["search_attempts"] = [decision.get("query") or state["query"]]
+                state["search_attempts"] = state["search_attempts"] + [decision.get("query") or state["query"]]
 
             elif action == "get_page":
                 if decision.get("doc_id") and decision.get("page_num") is not None:
@@ -69,7 +69,7 @@ def make_tool_dispatch_node(agent_tools: AgentTools):
             logger.error(f"Tool execution failed: {e}")
             state["scratchpad"] = [f"Tool error: {e}"]
 
-        state["registry_size_history"] = [frozenset(state["retrieved_chunk_registry"].keys())]
+        state["registry_size_history"] = state["registry_size_history"] + [frozenset(state["retrieved_chunk_registry"].keys())]
         return state
     return tool_dispatch_node
 
@@ -121,7 +121,7 @@ def make_verify_node(verify_use_case: VerifyAnswerUseCase):
             logger.info("Verification PASSED")
         else:
             state["validation_retries"] += 1
-            state["scratchpad"] = [f"Verification failed: {result.feedback_for_retry}"]
+            state["scratchpad"] = state["scratchpad"] + [f"Verification failed: {result.feedback_for_retry}"]
         return state
     return verify_node
 
