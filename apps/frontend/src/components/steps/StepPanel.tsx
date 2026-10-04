@@ -1,48 +1,47 @@
 // =============================================================================
 // FILE: src/components/steps/StepPanel.tsx
-// TARGET PATH IN PROJECT: apps/frontend/src/components/steps/StepPanel.tsx
-// NEW FILE
+// TARGET PATH: apps/frontend/src/components/steps/StepPanel.tsx
+// REPLACES: previous StepPanel.tsx
 //
-// WHAT IT DOES:
-//   The right sidebar panel shown during/after an agentic run.
-//   Contains two sections stacked vertically:
-//     1. StepGraph (circle → arrow → circle pipeline diagram, existing component)
-//     2. StepTracker (linear list of every raw step, existing component)
-//
-//   Panel header shows: "Agent Steps" title + current status badge
-//   (running / done / degraded).
-//
-// WHY:
-//   Notes sketch shows "steps" box on the right side of the chat with
-//   "Ingest → Retrieval" flow. This is that panel.
-//
-// WHERE IT CONNECTS:
-//   store/chatStore.ts (steps, isRunning)
-//   components/steps/StepGraph.tsx (unchanged, reused)
-//   components/steps/StepTracker.tsx (unchanged, reused)
+// WHAT CHANGED:
+//   - Uses new IterationTrace instead of StepGraph + StepTracker
+//   - Panel has open/close toggle (→ button when closed, ✕ inside IterationTrace)
+//   - When closed: shows a thin 40px rail with a ⬡ icon — click to reopen
+//   - stepPanelOpen state lives in chatStore
 // =============================================================================
 
 import { useChatStore } from "@/store/chatStore";
+import { IterationTrace } from "@/components/steps/IterationTrace";
 import { StepGraph } from "@/components/steps/StepGraph";
-import { StepTracker } from "@/components/steps/StepTracker";
 
 export function StepPanel() {
-  const { steps, isRunning } = useChatStore((s) => ({ steps: s.steps, isRunning: s.isRunning }));
+  const { steps, isRunning, stepPanelOpen, setStepPanelOpen } = useChatStore((s) => ({
+    steps: s.steps,
+    isRunning: s.isRunning,
+    stepPanelOpen: s.stepPanelOpen,
+    setStepPanelOpen: s.setStepPanelOpen,
+  }));
 
-  const status = isRunning ? "running" : steps.some((s) => s.status === "error") ? "degraded" : "done";
+  // Collapsed rail
+  if (!stepPanelOpen) {
+    return (
+      <div className="step-panel-rail" onClick={() => setStepPanelOpen(true)} title="Open agent trace">
+        <span className="step-rail-icon">⬡</span>
+        {isRunning && <span className="step-rail-pulse" />}
+      </div>
+    );
+  }
 
   return (
     <div className="step-panel">
-      <div className="step-panel-header">
-        <span className="step-panel-title">Agent Steps</span>
-        <span className={`step-panel-status ${status}`}>
-          {status === "running" ? "⟳ running" : status === "degraded" ? "⚠ degraded" : "✓ done"}
-        </span>
-      </div>
-      <div className="step-panel-body">
-        <StepGraph steps={steps} />
-        <StepTracker steps={steps} />
-      </div>
+      {/* Circle graph stays at top */}
+      {steps.length > 0 && (
+        <div className="step-graph-section">
+          <StepGraph steps={steps} />
+        </div>
+      )}
+      {/* New grouped iteration trace */}
+      <IterationTrace steps={steps} onClose={() => setStepPanelOpen(false)} />
     </div>
   );
 }
