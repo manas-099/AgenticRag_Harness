@@ -101,7 +101,11 @@ def get_rag_pipeline() -> RAGPipeline:
     claim_extractor = ClaimExtractor(generate_chain)
     citation_validator = CitationValidator()
     groundedness_checker = GroundednessChecker(model_registry, get_nli_settings())
-    verify_use_case = VerifyAnswerUseCase(claim_extractor, citation_validator, groundedness_checker)
+    verify_use_case = VerifyAnswerUseCase(
+        claim_extractor=claim_extractor,
+        citation_validator=citation_validator,
+        llm_client=generate_llm_client,  # uses same LLM chain as generation
+    )
 
     # The ReAct "what tool next?" decision uses the AGENT chain — kept
     # separately configurable from generation (see LLM_AGENT_CHAIN in .env).
