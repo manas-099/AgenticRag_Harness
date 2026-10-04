@@ -1,47 +1,37 @@
 // =============================================================================
 // FILE: src/App.tsx
-// TARGET PATH IN PROJECT: apps/frontend/src/App.tsx
-// REPLACES: existing App.tsx (full replacement)
+// TARGET PATH: apps/frontend/src/App.tsx
+// REPLACES: previous App.tsx
 //
 // WHAT CHANGED:
-//   The 3-column zone layout (Knowledge | QueryWorkspace | Config) is replaced
-//   with a 3-tab layout: Chat | Ingest | Config
-//   The Debug Panel is now a floating overlay toggled from the Topbar.
-//   The old zone-based workspace grid is gone.
-//
-// WHY:
-//   Notes specify "a chat application UI (good looking)" as the main UX.
-//   Tabs are the right pattern for a tool with 3 distinct modes.
-//   Debug Panel as overlay lets the user inspect agent internals without
-//   collapsing the chat.
-//
-// WHERE IT CONNECTS:
-//   components/layout/Topbar.tsx (tab nav + debug toggle)
-//   components/chat/ChatPage.tsx (Chat tab)
-//   components/ingest/IngestPage.tsx (Ingest tab)
-//   components/config/ConfigPage.tsx (Config tab)
-//   components/debug/DebugPanel.tsx (overlay)
+//   Layout now has a LEFT SIDEBAR for Config (collapsible to 44px icon rail)
+//   instead of Config being a top tab. Tab bar now only has: Ingest | Chat
+//   The sidebar shows: Retrieval settings, Agent settings, Model settings.
+//   Book+animals SVG in the topbar next to "RAG Harness" brand name.
 // =============================================================================
 
 import { useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
+import { ConfigSidebar } from "@/components/config/ConfigSidebar";
 import { ChatPage } from "@/components/chat/ChatPage";
 import { IngestPage } from "@/components/ingest/IngestPage";
-import { ConfigPage } from "@/components/config/ConfigPage";
 import { DebugPanel } from "@/components/debug/DebugPanel";
 
-export type AppTab = "chat" | "ingest" | "config";
+export type AppTab = "chat" | "ingest";
 
 export default function App() {
   const [tab, setTab] = useState<AppTab>("chat");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
     <div className="app-shell">
       <Topbar activeTab={tab} onTabChange={setTab} />
       <div className="app-body">
-        {tab === "chat" && <ChatPage />}
-        {tab === "ingest" && <IngestPage />}
-        {tab === "config" && <ConfigPage />}
+        <ConfigSidebar open={sidebarOpen} onToggle={() => setSidebarOpen((v) => !v)} />
+        <div className="app-main">
+          {tab === "chat" && <ChatPage />}
+          {tab === "ingest" && <IngestPage />}
+        </div>
       </div>
       <DebugPanel />
     </div>
