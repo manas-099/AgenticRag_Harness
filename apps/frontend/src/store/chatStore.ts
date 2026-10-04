@@ -1,39 +1,19 @@
 // =============================================================================
 // FILE: src/store/chatStore.ts
-// TARGET PATH IN PROJECT: apps/frontend/src/store/chatStore.ts
-// NEW FILE (does not exist yet)
+// TARGET PATH: apps/frontend/src/store/chatStore.ts
+// REPLACES: previous chatStore.ts
 //
-// WHAT IT DOES:
-//   Central Zustand store for the Chat tab. Maintains:
-//     - messages[]: the full conversation thread (user + assistant bubbles)
-//     - mode: "standard" | "agentic" — which pipeline to use
-//     - isRunning: true while waiting for a response
-//     - steps: AgentStep[] for the step visualization panel (agentic only)
-//     - activeStepIndex: which step is currently "active" (animated)
-//
-//   send(question) does:
-//     1. Appends user message bubble immediately
-//     2. Appends a loading assistant bubble (shows thinking animation)
-//     3. Calls the backend (standard or agentic)
-//     4. Replaces the loading bubble with the real answer + metadata
-//     5. Updates the step visualization from action_history
-//
-// WHY:
-//   The old queryStore had no concept of a conversation thread — each run
-//   was stateless. ChatStore is the persistent multi-turn replacement.
-//   It uses localStorage to persist the thread across page refreshes.
-//
-// WHERE IT CONNECTS:
-//   components/chat/ChatWindow.tsx (renders messages[])
-//   components/chat/ChatInput.tsx (calls send())
-//   components/steps/StepPanel.tsx (reads steps)
-//   store/debugStore.ts (reads action_steps from last agentic result)
+// WHAT CHANGED:
+//   - stripCitations() applied to answer text before storing in message
+//   - agenticMeta.from_cache tracked from response
+//   - Standard query also tracks from_cache
 // =============================================================================
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { runAgenticQuery, runStandardQuery } from "@/api/queryApi";
 import { buildInFlightSteps, parseActionHistory } from "@/utils/parseActionHistory";
+import { stripCitations } from "@/utils/stripCitations";
 import type { AgentStep, ChatMessage } from "@/types/domain";
 import { useDebugStore } from "@/store/debugStore";
 
@@ -44,8 +24,10 @@ interface ChatStore {
   mode: ChatMode;
   isRunning: boolean;
   steps: AgentStep[];
+  stepPanelOpen: boolean;
 
   setMode: (mode: ChatMode) => void;
+  setStepPanelOpen: (open: boolean) => void;
   send: (question: string) => Promise<void>;
   clearHistory: () => void;
 }
@@ -59,9 +41,10 @@ export const useChatStore = create<ChatStore>()(
       mode: "agentic",
       isRunning: false,
       steps: [],
+      stepPanelOpen: true,
 
       setMode: (mode) => set({ mode }),
-
+      setStepPanelOpen: (open) => set({ stepPanelOpen: open }),
       clearHistory: () => set({ messages: [], steps: [] }),
 
       send: async (question: string) => {
@@ -73,7 +56,6 @@ export const useChatStore = create<ChatStore>()(
           content: question,
           timestamp: Date.now(),
         };
-
         const loadingId = crypto.randomUUID();
         const loadingMsg: ChatMessage = {
           id: loadingId,
@@ -86,10 +68,9 @@ export const useChatStore = create<ChatStore>()(
         set((s) => ({
           messages: [...s.messages, userMsg, loadingMsg],
           isRunning: true,
-          steps: buildInFlightSteps(0),
+          steps: get().mode === "agentic" ? buildInFlightSteps(0) : [],
         }));
 
-        // Animate steps while waiting
         let stage = 0;
         if (inFlightTimer) clearInterval(inFlightTimer);
         if (get().mode === "agentic") {
@@ -105,7 +86,7 @@ export const useChatStore = create<ChatStore>()(
             const assistantMsg: ChatMessage = {
               id: loadingId,
               role: "assistant",
-              content: result.answer,
+              content: stripCitations(result.answer),
               timestamp: Date.now(),
               agenticMeta: {
                 degraded: result.is_insufficient,
@@ -115,6 +96,7 @@ export const useChatStore = create<ChatStore>()(
                 token_budget_used: 0,
                 action_steps: [],
                 sources_used: result.sources_used,
+                from_cache: result.from_cache,
               },
             };
             set((s) => ({
@@ -126,7 +108,7 @@ export const useChatStore = create<ChatStore>()(
             const assistantMsg: ChatMessage = {
               id: loadingId,
               role: "assistant",
-              content: result.answer,
+              content: stripCitations(result.answer),
               timestamp: Date.now(),
               agenticMeta: {
                 degraded: result.degraded,
@@ -136,13 +118,18 @@ export const useChatStore = create<ChatStore>()(
                 token_budget_used: result.token_budget_used,
                 action_steps: result.action_steps ?? [],
                 sources_used: result.sources_used,
+                from_cache: result.from_cache,
               },
             };
+            // If from cache, don't show step panel (no new steps)
+            const newSteps = result.from_cache
+              ? []
+              : parseActionHistory(result.action_history, result.degraded);
+
             set((s) => ({
               messages: s.messages.map((m) => (m.id === loadingId ? assistantMsg : m)),
-              steps: parseActionHistory(result.action_history, result.degraded),
+              steps: newSteps,
             }));
-            // Update debug store
             useDebugStore.getState().setLastResult({
               query: question,
               degraded: result.degraded,
@@ -173,7 +160,6 @@ export const useChatStore = create<ChatStore>()(
     }),
     {
       name: "rag-chat-history",
-      // Only persist messages and mode, not transient state
       partialize: (state) => ({ messages: state.messages, mode: state.mode }),
     }
   )
