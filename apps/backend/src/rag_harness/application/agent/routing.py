@@ -57,6 +57,10 @@ def make_route_after_dispatch(settings: HarnessLoopSettings):
 
 
 def route_after_verify(state: AgentState) -> str:
+    # If generate_node already marked degraded (e.g. LLM timeout, no chunks),
+    # don't loop back — go straight to degrade.
+    if state.get("degraded"):
+        return "degrade"
     vr = state.get("verification_result")
     if state.get("final_answer") and vr and vr.passed:
         return "end"
