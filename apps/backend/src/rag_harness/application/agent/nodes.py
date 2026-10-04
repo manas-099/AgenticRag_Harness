@@ -192,7 +192,7 @@ def make_verify_node(verify_use_case: VerifyAnswerUseCase):
                 "validation_retries": state["validation_retries"] + 1,
                 "scratchpad": [f"Verification failed: {result.feedback_for_retry}"],
             }
-    return make_verify_node
+    return verify_node   
 
 
 def degrade_node(state: AgentState) -> AgentState:
