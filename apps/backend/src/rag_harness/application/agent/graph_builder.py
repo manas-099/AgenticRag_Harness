@@ -1,7 +1,22 @@
-"""
-Builds and compiles the LangGraph state machine wiring all agent nodes
-together, and the top-level entry point that runs a query through it.
-"""
+# =============================================================================
+# FILE: src/rag_harness/application/agent/graph_builder.py
+# TARGET PATH IN PROJECT: apps/backend/src/rag_harness/application/agent/graph_builder.py
+# REPLACES: existing graph_builder.py (full replacement)
+#
+# WHAT CHANGED (ONE LINE):
+#   RunAgenticQueryUseCase.execute() now includes "scratchpad" and
+#   "token_budget_used" in its return dict.
+#
+# WHY:
+#   The query router (query.py) needs scratchpad entries to extract per-step
+#   thought text for the richer ActionStep objects in AgenticQueryResponse.
+#   token_budget_used is passed through for the Debug Panel.
+#
+# WHERE IT CONNECTS:
+#   - api/v1/routers/query.py reads result["scratchpad"] and
+#     result["token_budget_used"] from this function's return value.
+#   - Everything else in this file is IDENTICAL to the original.
+# =============================================================================
 
 from __future__ import annotations
 
@@ -97,8 +112,17 @@ class RunAgenticQueryUseCase:
                 "degrade_reason": result.get("degrade_reason"),
                 "iterations_used": result["iteration"],
                 "validation_retries": result["validation_retries"],
+                "token_budget_used": result.get("token_budget_used", 0),  # ← NEW: pass through
                 "action_history": result.get("action_history", []),
+                "scratchpad": result.get("scratchpad", []),               # ← NEW: pass through
             }
         except Exception as e:
             logger.critical(f"Agentic query failed unexpectedly: {e}")
-            return {"answer": "An unexpected error occurred.", "sources_used": [], "degraded": True, "degrade_reason": str(e)}
+            return {
+                "answer": "An unexpected error occurred.",
+                "sources_used": [],
+                "degraded": True,
+                "degrade_reason": str(e),
+                "scratchpad": [],
+                "token_budget_used": 0,
+            }
