@@ -50,6 +50,8 @@ class GroqLLMClient(LLMPort):
             # keep that minimal since this call only needs a short answer.
             if "gpt-oss" in self.model:
                 kwargs["reasoning_effort"] = "low"
+            if response_format is not None:
+                kwargs["response_format"] = response_format
 
             response = self.client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content
