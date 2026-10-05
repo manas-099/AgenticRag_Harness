@@ -129,7 +129,7 @@ export function ChatWindow() {
         const hasPartialContent = isDegraded && msg.content?.trim();
         return (
           <div key={msg.id} className={`chat-row ${msg.role}`}>
-            {msg.role === "assistant" && <div className="avatar">H</div>}
+            {msg.role === "assistant" && <div className="avatar">R</div>}
             <div className={`chat-bubble ${msg.role} ${isDegraded && !hasPartialContent ? "degraded" : ""}`}>
               {msg.isLoading ? (
                 <ThinkingDots />
