@@ -10,7 +10,7 @@
          R A G   H A R N E S S
 ```
 <div align="center">
-![alt text](image.png)
+![alt text](img\image.png)
 ```
 **A production-grade agentic RAG system built around a real ReAct loop.**  
 The agent decides at every step — search, reformulate, fetch, compare, or answer.  
