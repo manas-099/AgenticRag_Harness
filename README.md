@@ -9,10 +9,15 @@
 ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝
          R A G   H A R N E S S
 ```
+
 <div align="center">
-![alt text](img\image.png)
-```
-**A production-grade agentic RAG system built around a real ReAct loop.**  
+
+![RAG Harness](img/image.png)
+
+</div>
+
+
+** agentic RAG system built around a  ReAct loop.**  
 The agent decides at every step — search, reformulate, fetch, compare, or answer.  
 Every generated claim is verified against its source before being returned.
 
