@@ -1,52 +1,112 @@
-/* theme.css — Light theme */
+/* =============================================================================
+   theme.css — RAG Harness Calming Light Design System
+   TARGET: apps/frontend/src/styles/theme.css
+   FULL REPLACEMENT — do not merge, replace entirely
+   ============================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 :root {
-  --bg:              #f8f9fb;
-  --surface-1:       #ffffff;
-  --surface-2:       #f1f5f9;
-  --surface-3:       #e8edf5;
+  /* ── Backgrounds ── */
+  --bg:              #F8FAFC;    /* very light cool gray — main canvas */
+  --surface-1:       #F1F5F9;    /* sidebar / topbar */
+  --surface-2:       #FFFFFF;    /* cards, panels, bubbles */
+  --surface-3:       #E8EEF4;    /* hover states, subtle fills */
 
-  --border:          #e2e8f0;
-  --border-strong:   #cbd5e1;
+  /* ── Borders ── */
+  --border:          #E2E8F0;
+  --border-strong:   #CBD5E1;
 
-  --text-primary:    #0f172a;
-  --text-secondary:  #334155;
-  --text-muted:      #64748b;
+  /* ── Text ── */
+  --text-primary:    #0F172A;    /* near-black slate */
+  --text-secondary:  #475569;    /* mid slate */
+  --text-muted:      #94A3B8;    /* light slate */
 
-  /* Blue accent */
-  --accent:          #2563eb;
-  --accent-dim:      #dbeafe;
-  --accent-hover:    #1d4ed8;
+  /* ── Teal accent (primary) ── */
+  --teal:            #00A98F;    /* slightly deeper teal for light bg contrast */
+  --teal-dim:        rgba(0, 169, 143, 0.10);
+  --teal-border:     rgba(0, 169, 143, 0.30);
+  --teal-glow:       rgba(0, 169, 143, 0.12);
 
-  /* Kept for compatibility — map to blue */
-  --amber:           #2563eb;
-  --amber-dim:       #dbeafe;
+  /* ── Blue (user bubbles, retrieve dots) ── */
+  --blue:            #2563eb;
+  --blue-dim:        rgba(37, 99, 235, 0.08);
+  --blue-border:     rgba(37, 99, 235, 0.20);
 
-  --teal:            #059669;
-  --teal-dim:        #d1fae5;
+  /* ── Amber (evaluate dots, warnings) ── */
+  --amber:           #d97706;
+  --amber-dim:       rgba(217, 119, 6, 0.10);
+  --amber-border:    rgba(217, 119, 6, 0.25);
 
+  /* ── Danger ── */
   --danger:          #dc2626;
-  --danger-dim:      #fee2e2;
+  --danger-dim:      rgba(220, 38, 38, 0.08);
+  --danger-border:   rgba(220, 38, 38, 0.25);
 
+  /* ── Legacy aliases so existing components don't break ── */
+  --accent:          #00A98F;
+  --accent-dim:      rgba(0, 169, 143, 0.10);
+  --accent-hover:    #00896f;
+
+  /* ── Typography ── */
+  --font-ui:         "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono:       "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
 
+  /* ── Radii ── */
   --radius-sm:       6px;
   --radius-md:       10px;
   --radius-lg:       14px;
+  --radius-xl:       20px;
+
+  /* ── Shadows (lighter for light mode) ── */
+  --shadow-sm:       0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md:       0 4px 16px rgba(15, 23, 42, 0.10);
+  --shadow-teal:     0 0 20px rgba(0, 169, 143, 0.10);
+  --shadow-blue:     0 0 16px rgba(37, 99, 235, 0.10);
 
   color-scheme: light;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── Base resets ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+}
 
 body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg);
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-button { cursor: pointer; font-family: inherit; }
-input, select, textarea { font-family: inherit; }
-a { color: var(--accent); text-decoration: none; }
+button {
+  cursor: pointer;
+  font-family: var(--font-ui);
+  border: none;
+  background: none;
+}
+
+input, select, textarea {
+  font-family: var(--font-ui);
+}
+
+a {
+  color: var(--teal);
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--teal-dim);
+  color: var(--text-primary);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--surface-1); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--teal); }

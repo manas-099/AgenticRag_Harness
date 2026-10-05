@@ -660,3 +660,5 @@ These don't *do* anything — they're just the strict schemas `XGrammar` validat
 **Last line**: `page_level_chunker = PageLevelContextualChunker(...)` — just instantiates it, doesn't run anything yet. You'd call `page_level_chunker.chunk_document(...)` yourself, same as you already do with `contextual_chunker`.
 
 Want me to trace through what happens step-by-step for one concrete page (like we did earlier with the 5-page tag example) so you can see the actual data flowing through these functions instead of just their descriptions?
+
+  

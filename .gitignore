@@ -31,11 +31,10 @@ generate_structure.py
 
 others/
 
-delivery/
-delivery_v3/
-
 qdrant_local_storage_sections/
 
 .vscode/
 
 apps/frontend/node_modules/
+
+CHANGES.md
