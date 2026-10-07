@@ -449,16 +449,16 @@ RUN_E2E_TESTS=1 pytest tests/e2e       # requires Qdrant + LLM backend
 
 ---
 
-## ⚠️ Known Limitations
+## 🔭 Production Considerations
 
-**Section-title extraction is incomplete**
-Only reliably finds headers on Docling-routed pages with markdown `#` syntax. Plain-text pages (AnyDoc route) produce no section title. Metadata filtering degrades safely to unfiltered — but the extraction needs a real fix: read Docling's item type directly instead of regex-matching for `#`.
+**Section-title extraction uses regex-based heuristics**
+Currently detects markdown `#` headers — reliable on Docling-routed pages, no-op on plain-text (AnyDoc) pages. Metadata filtering degrades safely to unfiltered when no section is found. The natural next step is reading Docling's item type directly, which removes the dependency on markdown syntax entirely.
 
-**`InMemoryCache` is process-local**
-Swap for `RedisCache` (same interface) before running more than one backend process.
+**`InMemoryCache` is intentionally single-process**
+The cache interface is backend-agnostic — swapping to `RedisCache` (implementing the same interface) requires zero changes to calling code. Designed this way deliberately to keep local dev dependency-free.
 
-**Embedded Qdrant is single-process**
-Set `QDRANT_URL` in `.env` to a real Qdrant server once more than one backend process needs the store.
+**Embedded Qdrant for local development**
+Set `QDRANT_URL` in `.env` to point at a real Qdrant server for multi-process or production deployments. The client code is identical either way — only the config changes.
 
 ---
 
