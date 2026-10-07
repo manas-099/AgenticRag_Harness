@@ -79,6 +79,7 @@ Citation existence → checked in code. Rank fusion → rank position, not score
 │   │  search_documents                        │    │
 │   │  search_documents_reformulated           │    │
 │   │  get_page                                │    │
+│   │  get_context                             │    │
 │   │  compare_chunks                          │    │
 │   │  check_document_freshness                │    │
 │   │  answer ──────────────────────┐          │    │
@@ -134,6 +135,7 @@ Citation existence → checked in code. Rank fusion → rank position, not score
 │   llm/               │   Groq · MyLLM · OpenRouter factory      │
 │   sparse_search/     │   BM25 retriever                         │
 │   vector_stores/     │   Qdrant chunk + section collections     │
+│   cache/             │   InMemoryCache (swap for RedisCache)    │
 └──────────────────────┴──────────────────────────────────────────┘
 ```
 
@@ -350,13 +352,16 @@ Generated answer
 │       │       │   ├── 💬 llm/                     # Groq · MyLLM · OpenRouter
 │       │       │   │   └── llm_factory.py          # Single factory for all backends
 │       │       │   ├── 🔎 sparse_search/           # BM25 retriever
-│       │       │   └── 🗄️  vector_stores/          # Qdrant chunk + section collections
+│       │       │   ├── 🗄️  vector_stores/          # Qdrant chunk + section collections
+│       │       │   └── 🗃️  cache/                  # InMemoryCache (swap for RedisCache)
 │       │       │
 │       │       ├── 🌐 api/                         # FastAPI — routing only, zero logic
-│       │       │   └── v1/routers/
-│       │       │       ├── documents.py            # POST /v1/documents
-│       │       │       ├── query.py                # POST /v1/query · /v1/query/agentic
-│       │       │       └── health.py               # GET  /v1/health
+│       │       │   └── v1/
+│       │       │       ├── routers/
+│       │       │       │   ├── documents.py        # POST /v1/documents
+│       │       │       │   ├── query.py            # POST /v1/query · /v1/query/agentic
+│       │       │       │   └── health.py           # GET  /v1/health
+│       │       │       └── schemas/               # Pydantic request/response models
 │       │       │
 │       │       └── ⚙️  config/
 │       │           └── settings.py                 # Pydantic BaseSettings
@@ -390,7 +395,7 @@ Generated answer
 
 ```bash
 cd apps/backend
-pip install -e .
+uv sync                 # installs all dependencies from uv.lock
 cp .env.example .env    # fill in MYLLM_AUTH_TOKEN, GROQ_API_KEY, OPENROUTER_API_KEY
 ```
 
@@ -415,7 +420,7 @@ uvicorn rag_harness.api.main:app --reload
 ```bash
 cd apps/frontend
 npm install
-cp .env.example .env    # set VITE_API_URL to backend URL
+cp .env.example .env    # set VITE_API_BASE_URL to backend URL (leave empty for local dev proxy)
 npm run dev
 ```
 
