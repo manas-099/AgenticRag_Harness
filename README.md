@@ -41,7 +41,7 @@ Every generated claim is verified against its source before being returned.
 
 <br/>
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-ReAct_Loop-FF6B35?style=flat-square)
 ![Qdrant](https://img.shields.io/badge/Qdrant-Vector_Store-DC143C?style=flat-square)
