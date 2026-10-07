@@ -1,5 +1,15 @@
 # Final Plan — Page-Level Tagging + Contextual Preamble Pipeline
 
+> **⚠️ Status: Design / Experiment Artifact — NOT the currently shipped pipeline.**
+> 
+> This document describes a planned three-phase (`PageAgent → TagMerger → Supervisor`) architecture that was designed and prototyped in the experiments notebook but **not yet merged into production**.
+> 
+> The currently shipped chunker is [`ContextualChunker`](apps/backend/src/rag_harness/application/ingestion/contextual_chunker.py) — a per-chunk preamble approach using a single LLM call per chunk with `ThreadPoolExecutor` concurrency.
+> 
+> The currently shipped metadata filtering uses **section-title-based Qdrant filtering** (via `SectionCandidateSelector` → `SectionFilterLLM` → `MetadataFilterService`), not topic tags. The `ChunkMetadata` domain model has a `section_title: Optional[str]` field — there is no `topic_tag` or `topic_tags` field in the shipped code.
+
+---
+
 ## 1. Goal
 
 Replace the current design (1 whole-doc tag call + 1 preamble call *per chunk*) with a page-parallel design that:
@@ -661,4 +671,6 @@ These don't *do* anything — they're just the strict schemas `XGrammar` validat
 
 Want me to trace through what happens step-by-step for one concrete page (like we did earlier with the 5-page tag example) so you can see the actual data flowing through these functions instead of just their descriptions?
 
-  
+---
+
+> **Implementation note:** When this pipeline is promoted from experiments to production, the `ChunkMetadata` domain model will need a `topic_tags: list[str]` field added, and `ContextualChunker` will be replaced (or wrapped) by `PageLevelContextualChunker`. The metadata filtering layer (`MetadataFilterService`) can then be extended to filter on `topic_tags` in addition to, or instead of, `section_title`.

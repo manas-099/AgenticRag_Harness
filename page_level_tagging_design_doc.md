@@ -1,14 +1,21 @@
 # Page-Level Contextual Tagging & Preamble Pipeline — Design Doc
 
+> **⚠️ Status: Design / Experiment Artifact — NOT the currently shipped pipeline.**
+> 
+> This document describes the planned page-level tagging architecture. The currently shipped chunker is `ContextualChunker` (per-chunk preamble, `ThreadPoolExecutor`-concurrent LLM calls). The shipped `ChunkMetadata` model has `section_title: Optional[str]` — **no `topic_tag` or `topic_tags` field exists yet in production code.** Items marked "solved" below reflect the design intent, not the current implementation.
+
+---
+
+
 ## 0. The two core questions this feature answers
 
 Everything in this pipeline traces back to two specific questions we needed a real answer for:
 
 1. **"Can one chunk belong to multiple topics?"**
-   → Solved by **multi-tag storage**. `ChunkMetadata.topic_tag` (a single string) was changed to `topic_tags` (a list), and the code that was silently collapsing every chunk down to just its first tag (`row["tags"][0]`) was fixed to keep the full validated list instead.
+   → **Design intent:** multi-tag storage. `ChunkMetadata.topic_tag` (a single string) would be changed to `topic_tags` (a list), and the code that was silently collapsing every chunk down to just its first tag (`row["tags"][0]`) would be fixed to keep the full validated list instead. **Note: this change has not yet been made in the shipped domain model.**
 
 2. **"Do different chunks that cover the SAME topic use the SAME tag name?"**
-   → Solved by **tag merging / reconciliation**. The hierarchical merge step (within-page split + cross-page batching + final merge) collapses differently-worded tags — e.g. `tool_code`, `code_execution_tool`, `tools_for_coding` — into one canonical name. A rename map ensures a chunk that originally used an old wording still correctly resolves to the new canonical tag instead of being silently dropped during validation.
+   → **Design intent:** tag merging / reconciliation. The hierarchical merge step (within-page split + cross-page batching + final merge) collapses differently-worded tags — e.g. `tool_code`, `code_execution_tool`, `tools_for_coding` — into one canonical name. A rename map ensures a chunk that originally used an old wording still correctly resolves to the new canonical tag instead of being silently dropped during validation.
 
 Everything else in this document — the page-level agents, the supervisor, the thresholds — exists in service of answering these two questions correctly and efficiently.
 
