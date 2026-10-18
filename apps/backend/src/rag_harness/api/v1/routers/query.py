@@ -19,6 +19,10 @@
 # =============================================================================
 
 import hashlib
+import json
+import logging
+import time
+from collections import Counter
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
@@ -30,6 +34,7 @@ from rag_harness.application.rag_pipeline import RAGPipeline
 router = APIRouter(prefix="/query", tags=["query"])
 
 _last_agent_debug: dict = {}
+_eval_logger = logging.getLogger("rag_harness.eval")
 
 
 def _agentic_cache_key(question: str) -> str:
@@ -57,6 +62,19 @@ def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag
     if cached_answer is not None:
         # Rebuild a minimal response from cache
         cached_debug = _last_agent_debug if _last_agent_debug.get("query") == request.question else {}
+        _eval_logger.info(json.dumps({
+            "event": "agentic_query",
+            "from_cache": True,
+            "query_hash": cache_key,
+            "degraded": False,
+            "degrade_reason": None,
+            "iterations_used": cached_debug.get("iterations_used", 0),
+            "validation_retries": 0,
+            "token_budget_used": 0,
+            "sources_count": len(cached_debug.get("sources_used", [])),
+            "action_distribution": {},
+            "search_attempts": 0,
+        }))
         return AgenticQueryResponse(
             answer=cached_answer,
             sources_used=cached_debug.get("sources_used", []),
@@ -89,6 +107,12 @@ def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag
     if not result.get("degraded", False) and result.get("answer"):
         pipeline.cache.query_cache[cache_key] = result["answer"]
 
+    _action_counts = Counter(raw_actions)
+    _search_attempts = (
+        _action_counts.get("search_documents", 0)
+        + _action_counts.get("search_documents_reformulated", 0)
+    )
+
     _last_agent_debug = {
         "query": request.question,
         "degraded": result.get("degraded", False),
@@ -100,6 +124,24 @@ def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag
         "sources_used": result.get("sources_used", []),
         "action_steps": [s.model_dump() for s in action_steps],
     }
+
+    _eval_logger.info(json.dumps({
+        "event": "agentic_query",
+        "from_cache": False,
+        "query_hash": cache_key,
+        "degraded": result.get("degraded", False),
+        "degrade_reason": result.get("degrade_reason"),
+        "iterations_used": result.get("iterations_used", 0),
+        "max_iterations": pipeline.agentic_use_case.loop_settings.MAX_ITERATIONS,
+        "validation_retries": result.get("validation_retries", 0),
+        "max_validation_retries": pipeline.agentic_use_case.loop_settings.MAX_VALIDATION_RETRIES,
+        "token_budget_used": result.get("token_budget_used", 0),
+        "max_token_budget": pipeline.agentic_use_case.loop_settings.MAX_TOKEN_BUDGET,
+        "sources_count": len(result.get("sources_used", [])),
+        "action_distribution": dict(_action_counts),
+        "search_attempts": _search_attempts,
+        "max_search_attempts": pipeline.agentic_use_case.loop_settings.MAX_SEARCH_ATTEMPTS,
+    }))
 
     return AgenticQueryResponse(
         answer=result["answer"],
