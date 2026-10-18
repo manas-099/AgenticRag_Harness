@@ -18,13 +18,14 @@
 #   instance (accessed via pipeline.cache).
 # =============================================================================
 
+
 import hashlib
 import json
 import logging
-import time
 from collections import Counter
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+
 
 from rag_harness.api.dependencies import get_rag_pipeline
 from rag_harness.api.v1.schemas import AgenticQueryResponse, QueryRequest, QueryResponse
