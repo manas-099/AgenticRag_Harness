@@ -1,6 +1,8 @@
+import asyncio
 import shutil
 import tempfile
 import os
+from functools import partial
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 
@@ -29,7 +31,12 @@ async def upload_and_ingest(
     doc_version: str = Form("v1"),
     pipeline: RAGPipeline = Depends(get_rag_pipeline),
 ):
-    """Accept a browser file upload, persist it temporarily, ingest, then clean up."""
+    """Accept a browser file upload, persist it temporarily, ingest, then clean up.
+
+    Ingestion (OCR, embedding) is CPU-heavy. Offloading it to a thread pool
+    keeps the async event loop alive so uvicorn can send keepalive packets —
+    this prevents the client read-timeout on large/complex documents.
+    """
     suffix = os.path.splitext(file.filename or "")[1].lower()
     if suffix not in (".pdf", ".md"):
         raise HTTPException(status_code=415, detail=f"Unsupported file type '{suffix}'. Only .pdf and .md are accepted.")
@@ -40,9 +47,13 @@ async def upload_and_ingest(
         with open(tmp_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        chunks = pipeline.ingest_document(tmp_path, doc_id, doc_version)
+        # Run blocking ingest in a thread pool so the event loop isn't stalled.
+        loop = asyncio.get_event_loop()
+        chunks = await loop.run_in_executor(
+            None, partial(pipeline.ingest_document, tmp_path, doc_id, doc_version)
+        )
         return IngestDocumentResponse(doc_id=doc_id, chunks_created=len(chunks))
     except HarnessError as e:
         raise HTTPException(status_code=422, detail=str(e))
     finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        shutil.rmtree(tmp_dir, ignore_errors=True)

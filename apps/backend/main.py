@@ -18,6 +18,9 @@ eval_logger.propagate = False  # do not duplicate into root logger / uvicorn out
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+from rag_harness.api.main import app  # noqa: F401
+
+
 def main():
     print("Hello from backend!")
 
