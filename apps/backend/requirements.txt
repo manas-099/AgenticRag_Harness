@@ -1,40 +1,47 @@
-# Core
-pydantic>=2.6
-pydantic-settings>=2.2
+# ── Core ──────────────────────────────────────────────────────────────────────
+pydantic>=2.6,<3.0
+pydantic-settings>=2.2,<3.0
 
-# API
-fastapi>=0.110
-uvicorn[standard]>=0.27
+# ── API ───────────────────────────────────────────────────────────────────────
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
 
-# LLM clients
-requests>=2.31
-groq>=0.11
+# ── LLM clients ───────────────────────────────────────────────────────────────
+requests>=2.31,<3.0
+groq>=0.11,<1.0
+langchain-openai>=0.3.0,<1.0
 
-# Agent orchestration
-langgraph>=0.2
+# ── Agent orchestration ───────────────────────────────────────────────────────
+langgraph>=1.2.0,<2.0
+langchain-core>=1.6.0,<2.0
 
-# Embeddings / rerank / NLI
-sentence-transformers>=3.0
-torch>=2.2
+# ── Embeddings / rerank / NLI ─────────────────────────────────────────────────
+sentence-transformers>=3.0,<4.0
+torch>=2.2,<3.0
+langchain-huggingface>=0.1.0,<1.0
 
-# Vector store
-qdrant-client[fastembed]>=1.9
+# ── Vector store ──────────────────────────────────────────────────────────────
+qdrant-client[fastembed]>=1.9,<2.0
 
-# Sparse retrieval
-rank-bm25>=0.2.2
+# ── Sparse retrieval ──────────────────────────────────────────────────────────
+rank-bm25>=0.2.2,<1.0
 
-# Chunking
-langchain-text-splitters>=0.2
+# ── Chunking ──────────────────────────────────────────────────────────────────
+langchain-text-splitters>=0.2,<1.0
 
-# Document parsing
-pymupdf>=1.24
-docling>=2.0
-firecrawl-anydoc>=0.1
+# ── Document parsing ──────────────────────────────────────────────────────────
+pymupdf>=1.24,<2.0
+docling>=2.0,<3.0
+firecrawl-anydoc>=0.1,<1.0
 
-# Dev / testing
-pytest>=8.0
-pytest-mock>=3.14
-python-dotenv>=1.0
+# ── Eval ──────────────────────────────────────────────────────────────────────
+ragas>=0.2.0,<0.3.0
+datasets>=3.0.0,<6.0.0
 
-# Pretty terminal logging
-rich>=13.7
+# ── Dev / testing ─────────────────────────────────────────────────────────────
+pytest>=8.0,<9.0
+pytest-mock>=3.14,<4.0
+python-dotenv>=1.0,<2.0
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+rich>=13.7,<14.0
