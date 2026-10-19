@@ -21,6 +21,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     sources_used: list[str]
+    retrieved_contexts: list[str] = []
     is_insufficient: bool
     from_cache: bool
 

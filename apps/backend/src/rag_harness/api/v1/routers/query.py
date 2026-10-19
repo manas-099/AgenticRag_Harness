@@ -46,9 +46,15 @@ def _agentic_cache_key(question: str) -> str:
 @router.post("", response_model=QueryResponse)
 def query(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag_pipeline)):
     result = pipeline.answer(request.question, doc_version_key=request.doc_version_key)
+    retrieved_contexts = [
+        rc.chunk.raw_text
+        for rc in (result.retrieved_chunks or [])
+        if rc and rc.chunk and rc.chunk.raw_text
+    ]
     return QueryResponse(
         answer=result.answer,
         sources_used=result.sources_used,
+        retrieved_contexts=retrieved_contexts,
         is_insufficient=result.is_insufficient,
         from_cache=result.from_cache,
     )
