@@ -49,13 +49,13 @@ THRESHOLDS = {
 # Ragas imports
 # ─────────────────────────────────────────────────────────────────────────────
 # pyrefly: ignore[missing-import]
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 # pyrefly: ignore[missing-import]
 from ragas import evaluate, EvaluationDataset
 # pyrefly: ignore[missing-import]
 from ragas.run_config import RunConfig
 # pyrefly: ignore[missing-import]
-from ragas.llms import LangchainLLMWrapper
+from ragas.llms import llm_factory
 # pyrefly: ignore[missing-import]
 from ragas.embeddings import HuggingFaceEmbeddings
 # pyrefly: ignore[missing-import]
@@ -65,20 +65,6 @@ from ragas.metrics.collections import (
     ContextPrecisionWithoutReference,
     ContextRecall,
 )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# LLM wrapper that forces n=1
-# Medha (vLLM greedy sampling) rejects n>1. Ragas calls .bind(n=3) for some
-# metrics. This subclass intercepts .bind() and removes the n parameter so
-# Medha never sees it.
-# ─────────────────────────────────────────────────────────────────────────────
-class SingleCompletionChatOpenAI(ChatOpenAI):
-    """ChatOpenAI that silently drops any n>1 request from ragas internals."""
-
-    def bind(self, **kwargs):
-        kwargs.pop("n", None)   # strip ragas's n=3 before it reaches vLLM
-        return super().bind(**kwargs)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -176,23 +162,19 @@ def main():
     # 3. Build ragas dataset
     dataset = EvaluationDataset.from_list(samples)
 
-    # 4. Build evaluator LLM
-    #    SingleCompletionChatOpenAI.bind() strips n=3 → Medha never sees it
+    # 4. Build evaluator LLM using llm_factory → returns InstructorLLM
+    #    ragas.metrics.collections REQUIRES InstructorLLM (not LangchainLLMWrapper)
+    #    InstructorLLM calls the API with n=1 by default — no n=3 issue
     print("\n[INFO] Initialising evaluator LLM and embeddings...")
-    eval_llm = LangchainLLMWrapper(
-        SingleCompletionChatOpenAI(
-            model=LLM_MODEL,
-            base_url=LLM_BASE_URL,
-            api_key=LLM_API_KEY,
-            temperature=0,
-        )
-    )
+    openai_client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    eval_llm = llm_factory(LLM_MODEL, client=openai_client)
 
     # 5. Build embeddings using ragas native HuggingFaceEmbeddings
     #    — no LangchainEmbeddingsWrapper / EmbeddingUsageEvent string error
     eval_emb = HuggingFaceEmbeddings(model=EMBEDDING_MODEL_NAME)
 
-    # 6. Define metrics — llm required in constructor for ragas 0.4.3
+    # 6. Define metrics — pass InstructorLLM from llm_factory to constructors
+    #    collections metrics REQUIRE InstructorLLM, accept it in constructor
     metrics = [
         Faithfulness(llm=eval_llm),
         AnswerRelevancy(llm=eval_llm, embeddings=eval_emb),
@@ -205,6 +187,7 @@ def main():
     run_config   = RunConfig(max_workers=eval_workers, timeout=180, max_retries=3)
     print(f"\n[INFO] Running ragas evaluation (workers={eval_workers})...")
     results = evaluate(dataset=dataset, metrics=metrics, run_config=run_config)
+
 
     # 8. Print results
     print("\n" + "=" * 60)
