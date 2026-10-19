@@ -4,6 +4,7 @@ Run once after starting the server: python test_ingest.py
 
 NOTE: First run downloads Docling OCR models. Allow up to 10 minutes.
 """
+# pyrefly: ignore[missing-import]
 import requests
 import os
 import sys
