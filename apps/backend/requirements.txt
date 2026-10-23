@@ -9,16 +9,16 @@ uvicorn[standard]>=0.27,<1.0
 # ── LLM clients ───────────────────────────────────────────────────────────────
 requests>=2.31,<3.0
 groq>=0.11,<1.0
-langchain-openai>=0.3.0,<1.0
+langchain-openai>=1.0.0,<2.0
 
 # ── Agent orchestration ───────────────────────────────────────────────────────
 langgraph>=1.2.0,<2.0
-langchain-core>=1.6.0,<2.0
+langchain-core>=1.6.6,<2.0
 
 # ── Embeddings / rerank / NLI ─────────────────────────────────────────────────
 sentence-transformers>=3.0,<4.0
 torch>=2.2,<3.0
-langchain-huggingface>=0.1.0,<1.0
+langchain-huggingface>=1.0.0,<2.0
 
 # ── Vector store ──────────────────────────────────────────────────────────────
 qdrant-client[fastembed]>=1.9,<2.0
@@ -27,7 +27,7 @@ qdrant-client[fastembed]>=1.9,<2.0
 rank-bm25>=0.2.2,<1.0
 
 # ── Chunking ──────────────────────────────────────────────────────────────────
-langchain-text-splitters>=0.2,<1.0
+langchain-text-splitters>=0.3,<1.0
 
 # ── Document parsing ──────────────────────────────────────────────────────────
 pymupdf>=1.24,<2.0
@@ -37,6 +37,7 @@ firecrawl-anydoc>=0.1,<1.0
 # ── Eval ──────────────────────────────────────────────────────────────────────
 ragas>=0.2.0,<0.3.0
 datasets>=3.0.0,<6.0.0
+deepeval>=1.0.0
 
 # ── Dev / testing ─────────────────────────────────────────────────────────────
 pytest>=8.0,<9.0
