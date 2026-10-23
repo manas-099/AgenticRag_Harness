@@ -18,8 +18,18 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+from pathlib import Path
+
+_BACKEND_DIR = Path(__file__).resolve().parents[3]
+_ENV_FILES = (_BACKEND_DIR / ".env", Path(".env"))
+
+
 class _EnvBase(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILES,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 class EnvironmentSettings(_EnvBase):
@@ -44,7 +54,7 @@ class EnvironmentSettings(_EnvBase):
 # names and log messages everywhere use "myllm", never the real model name.
 # ---------------------------------------------------------------------------
 class MyLLMSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="MYLLM_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="MYLLM_")
 
     API_URL: str = ""
     AUTH_TOKEN: str = ""
@@ -63,7 +73,7 @@ class MyLLMSettings(_EnvBase):
 
 
 class OpenRouterSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="OPENROUTER_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="OPENROUTER_")
 
     API_KEY: str = ""
     MODEL_NAME: str = "liquid/lfm-2.5-2.6b:free"
@@ -77,7 +87,7 @@ class OpenRouterSettings(_EnvBase):
 
 
 class GroqSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="GROQ_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="GROQ_")
 
     API_KEY: str = ""
     PRIMARY_MODEL: str = "openai/gpt-oss-120b"
@@ -122,7 +132,7 @@ class GroqSettings(_EnvBase):
 # Valid names: "myllm", "openrouter", "groq".
 # ---------------------------------------------------------------------------
 class LLMChainSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="LLM_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="LLM_")
 
     AGENT_CHAIN: str = "myllm,groq"
     GENERATE_CHAIN: str = "myllm,openrouter,groq"
@@ -137,7 +147,7 @@ class LLMChainSettings(_EnvBase):
 
 
 class HarnessLoopSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="HARNESS_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="HARNESS_")
 
     MAX_ITERATIONS: int = 8
     MAX_TOKEN_BUDGET: int = 12000
@@ -147,7 +157,7 @@ class HarnessLoopSettings(_EnvBase):
 
 
 class ChunkingSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="CHUNKING_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="CHUNKING_")
 
     CHUNK_SIZE_CHARS: int = 1800
     CHUNK_OVERLAP_CHARS: int = 200
@@ -157,7 +167,7 @@ class ChunkingSettings(_EnvBase):
 
 
 class IngestionSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="INGESTION_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="INGESTION_")
 
     MIN_EXTRACTED_CHARS: int = 40
     MIN_TEXT_CHARS_PER_PAGE: int = 20
@@ -167,7 +177,7 @@ class IngestionSettings(_EnvBase):
 
 
 class EmbeddingSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="EMBEDDING_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="EMBEDDING_")
 
     PRIMARY_EMBEDDING_MODEL: str = "BAAI/bge-base-en-v1.5"
     FALLBACK_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
@@ -179,7 +189,7 @@ class EmbeddingSettings(_EnvBase):
 
 
 class RetrievalSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="RETRIEVAL_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="RETRIEVAL_")
 
     TOP_K_DENSE: int = 12
     TOP_K_SPARSE: int = 12
@@ -190,14 +200,14 @@ class RetrievalSettings(_EnvBase):
 
 
 class RerankSettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="RERANK_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="RERANK_")
 
     RERANK_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     NLI_MODEL: str = "cross-encoder/nli-deberta-v3-base"
 
 
 class NLISettings(_EnvBase):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="NLI_")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding="utf-8", extra="ignore", env_prefix="NLI_")
 
     NLI_MODEL: str = "cross-encoder/nli-deberta-v3-base"
     NLI_ENTAILMENT_THRESHOLD: float = 0.6
