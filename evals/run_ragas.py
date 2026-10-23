@@ -29,8 +29,9 @@ if not LLM_BASE_URL or not LLM_API_KEY:
     print("[ERROR] LLM_BASE_URL and LLM_API_KEY must be set in your .env file.")
     sys.exit(1)
 
-# ── Embedding model ───────────────────────────────────────────────────────────
-EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5")
+# ── Embedding model (points to same LM Studio Nomic embedder as ingestion) ───
+EMBEDDING_NOMIC_BASE_URL = os.getenv("EMBEDDING_NOMIC_BASE_URL", "http://127.0.0.1:1234")
+EMBEDDING_NOMIC_MODEL    = os.getenv("EMBEDDING_NOMIC_MODEL", "text-embedding-nomic-embed-text-v1.5@q8_0")
 
 # ── RAG API ───────────────────────────────────────────────────────────────────
 RAG_API_BASE   = os.getenv("RAG_API_BASE", "http://localhost:8000")
@@ -339,13 +340,11 @@ def main():
 
     # ── 3. Build evaluator LLM (AsyncOpenAI) and embeddings ───────────────────
     #   ragas collections API uses agenerate() internally → must use AsyncOpenAI
-    print("\n[INFO] Initialising evaluator LLM and embeddings...")
+    print("\n[INFO] Initialising evaluator LLM and embeddings (via LM Studio Nomic)...")
     # pyrefly: ignore[missing-import]
-    from langchain_openai import ChatOpenAI
+    from langchain_openai import ChatOpenAI, OpenAIEmbeddings
     # pyrefly: ignore[missing-import]
     from ragas.llms import LangchainLLMWrapper
-    # pyrefly: ignore[missing-import]
-    from langchain_community.embeddings import FastEmbedEmbeddings
     # pyrefly: ignore[missing-import]
     from ragas.embeddings import LangchainEmbeddingsWrapper
 
@@ -355,8 +354,19 @@ def main():
         base_url=LLM_BASE_URL,
     )
     eval_llm = LangchainLLMWrapper(chat_model)
+
+    lmstudio_base_url = (
+        f"{EMBEDDING_NOMIC_BASE_URL}/v1"
+        if not EMBEDDING_NOMIC_BASE_URL.endswith("/v1")
+        else EMBEDDING_NOMIC_BASE_URL
+    )
     eval_emb = LangchainEmbeddingsWrapper(
-        FastEmbedEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+        OpenAIEmbeddings(
+            model=EMBEDDING_NOMIC_MODEL,
+            base_url=lmstudio_base_url,
+            api_key="lm-studio",
+            check_embedding_ctx_length=False,
+        )
     )
 
     # ── 4. Score ──────────────────────────────────────────────────────────────
