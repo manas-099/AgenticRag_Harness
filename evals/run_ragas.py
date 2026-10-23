@@ -183,8 +183,9 @@ async def _score_all(
         has_ctx = bool(ctx and len(ctx) >= MIN_CONTEXTS_FOR_RETRIEVAL)
 
         async with semaphore:
-            # ── Faithfulness ──────────────────────────────────────────────────
-            if has_ctx:
+            async def _calc_faithfulness():
+                if not has_ctx:
+                    return
                 try:
                     res = await faithfulness_metric.ascore(
                         user_input         = q,
@@ -194,21 +195,20 @@ async def _score_all(
                     totals["faithfulness"].append(float(res.value))
                 except Exception as exc:
                     print(f"  [WARN] faithfulness failed for '{safe}': {exc}")
-            else:
-                context_missing_count += 1
 
-            # ── AnswerRelevancy (no contexts needed) ──────────────────────────
-            try:
-                res = await relevancy_metric.ascore(
-                    user_input = q,
-                    response   = r,
-                )
-                totals["answer_relevancy"].append(float(res.value))
-            except Exception as exc:
-                print(f"  [WARN] answer_relevancy failed for '{safe}': {exc}")
+            async def _calc_relevancy():
+                try:
+                    res = await relevancy_metric.ascore(
+                        user_input = q,
+                        response   = r,
+                    )
+                    totals["answer_relevancy"].append(float(res.value))
+                except Exception as exc:
+                    print(f"  [WARN] answer_relevancy failed for '{safe}': {exc}")
 
-            # ── ContextPrecision ──────────────────────────────────────────────
-            if has_ctx:
+            async def _calc_precision():
+                if not has_ctx:
+                    return
                 try:
                     res = await precision_metric.ascore(
                         user_input         = q,
@@ -219,8 +219,9 @@ async def _score_all(
                 except Exception as exc:
                     print(f"  [WARN] context_precision failed for '{safe}': {exc}")
 
-            # ── ContextRecall ─────────────────────────────────────────────────
-            if has_ctx:
+            async def _calc_recall():
+                if not has_ctx:
+                    return
                 try:
                     res = await recall_metric.ascore(
                         user_input         = q,
@@ -230,6 +231,17 @@ async def _score_all(
                     totals["context_recall"].append(float(res.value))
                 except Exception as exc:
                     print(f"  [WARN] context_recall failed for '{safe}': {exc}")
+
+            if not has_ctx:
+                context_missing_count += 1
+
+            # Run all 4 metrics simultaneously for this sample
+            await asyncio.gather(
+                _calc_faithfulness(),
+                _calc_relevancy(),
+                _calc_precision(),
+                _calc_recall(),
+            )
 
             scored_count += 1
             if not has_tqdm:
@@ -331,7 +343,10 @@ def main():
     #   ragas collections API uses agenerate() internally → must use AsyncOpenAI
     print("\n[INFO] Initialising evaluator LLM and embeddings...")
     from openai import AsyncOpenAI                  # ← AsyncOpenAI, not OpenAI
-    from ragas.embeddings import HuggingFaceEmbeddings
+    try:
+        from ragas.embeddings import HuggingfaceEmbeddings
+    except ImportError:
+        from ragas.embeddings import HuggingFaceEmbeddings as HuggingfaceEmbeddings
     from ragas.llms import llm_factory
 
     async_client = AsyncOpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
@@ -340,7 +355,7 @@ def main():
         provider = "openai",
         client   = async_client,           # ← async client here
     )
-    eval_emb = HuggingFaceEmbeddings(model=EMBEDDING_MODEL_NAME)
+    eval_emb = HuggingfaceEmbeddings(model=EMBEDDING_MODEL_NAME)
 
     # ── 4. Score ──────────────────────────────────────────────────────────────
     eval_workers = int(os.getenv("RAGAS_EVAL_WORKERS", "2"))
