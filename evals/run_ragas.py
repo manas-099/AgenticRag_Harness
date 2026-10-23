@@ -135,19 +135,21 @@ async def _score_all(
     eval_emb,
 ) -> dict[str, float]:
     # pyrefly: ignore[missing-import]
-    from ragas.metrics.collections import (
+    from ragas.dataset_schema import SingleTurnSample
+    # pyrefly: ignore[missing-import]
+    from ragas.metrics import (
         AnswerRelevancy,
-        ContextPrecisionWithoutReference,
         ContextRecall,
         Faithfulness,
+        LLMContextPrecisionWithoutReference,
     )
 
     faithfulness_metric = Faithfulness(llm=eval_llm)
     relevancy_metric    = AnswerRelevancy(llm=eval_llm, embeddings=eval_emb)
-    precision_metric    = ContextPrecisionWithoutReference(llm=eval_llm)
+    precision_metric    = LLMContextPrecisionWithoutReference(llm=eval_llm)
     recall_metric       = ContextRecall(llm=eval_llm)
 
-    eval_workers = int(os.getenv("RAGAS_EVAL_WORKERS", "2"))
+    eval_workers = int(os.getenv("RAGAS_EVAL_WORKERS", "10"))
     semaphore    = asyncio.Semaphore(eval_workers)
 
     totals: dict[str, list[float]] = {
@@ -173,36 +175,38 @@ async def _score_all(
         except ImportError:
             has_tqdm = False
 
-    async def _score_sample(sample: dict):
+    async def _score_sample(sample_dict: dict):
         nonlocal context_missing_count, scored_count
-        q   = sample["user_input"]
-        r   = sample["response"]
-        ctx = sample["retrieved_contexts"]   # may be []
-        ref = sample.get("reference", "")
+        q   = sample_dict["user_input"]
+        r   = sample_dict["response"]
+        ctx = sample_dict["retrieved_contexts"]   # may be []
+        ref = sample_dict.get("reference", "")
         safe = q[:50].encode("ascii", "replace").decode("ascii")
         has_ctx = bool(ctx and len(ctx) >= MIN_CONTEXTS_FOR_RETRIEVAL)
+
+        sample = SingleTurnSample(
+            user_input=q,
+            response=r,
+            retrieved_contexts=ctx if has_ctx else [],
+            reference=ref,
+        )
 
         async with semaphore:
             async def _calc_faithfulness():
                 if not has_ctx:
                     return
                 try:
-                    res = await faithfulness_metric.ascore(
-                        user_input         = q,
-                        response           = r,
-                        retrieved_contexts = ctx,
-                    )
-                    totals["faithfulness"].append(float(res.value))
+                    score = await faithfulness_metric.single_turn_ascore(sample)
+                    if score is not None and score == score:
+                        totals["faithfulness"].append(float(score))
                 except Exception as exc:
                     print(f"  [WARN] faithfulness failed for '{safe}': {exc}")
 
             async def _calc_relevancy():
                 try:
-                    res = await relevancy_metric.ascore(
-                        user_input = q,
-                        response   = r,
-                    )
-                    totals["answer_relevancy"].append(float(res.value))
+                    score = await relevancy_metric.single_turn_ascore(sample)
+                    if score is not None and score == score:
+                        totals["answer_relevancy"].append(float(score))
                 except Exception as exc:
                     print(f"  [WARN] answer_relevancy failed for '{safe}': {exc}")
 
@@ -210,12 +214,9 @@ async def _score_all(
                 if not has_ctx:
                     return
                 try:
-                    res = await precision_metric.ascore(
-                        user_input         = q,
-                        response           = r,
-                        retrieved_contexts = ctx,
-                    )
-                    totals["context_precision"].append(float(res.value))
+                    score = await precision_metric.single_turn_ascore(sample)
+                    if score is not None and score == score:
+                        totals["context_precision"].append(float(score))
                 except Exception as exc:
                     print(f"  [WARN] context_precision failed for '{safe}': {exc}")
 
@@ -223,12 +224,9 @@ async def _score_all(
                 if not has_ctx:
                     return
                 try:
-                    res = await recall_metric.ascore(
-                        user_input         = q,
-                        retrieved_contexts = ctx,
-                        reference          = ref,
-                    )
-                    totals["context_recall"].append(float(res.value))
+                    score = await recall_metric.single_turn_ascore(sample)
+                    if score is not None and score == score:
+                        totals["context_recall"].append(float(score))
                 except Exception as exc:
                     print(f"  [WARN] context_recall failed for '{safe}': {exc}")
 
@@ -342,20 +340,24 @@ def main():
     # ── 3. Build evaluator LLM (AsyncOpenAI) and embeddings ───────────────────
     #   ragas collections API uses agenerate() internally → must use AsyncOpenAI
     print("\n[INFO] Initialising evaluator LLM and embeddings...")
-    from openai import AsyncOpenAI                  # ← AsyncOpenAI, not OpenAI
-    try:
-        from ragas.embeddings import HuggingfaceEmbeddings
-    except ImportError:
-        from ragas.embeddings import HuggingFaceEmbeddings as HuggingfaceEmbeddings
-    from ragas.llms import llm_factory
+    # pyrefly: ignore[missing-import]
+    from langchain_openai import ChatOpenAI
+    # pyrefly: ignore[missing-import]
+    from ragas.llms import LangchainLLMWrapper
+    # pyrefly: ignore[missing-import]
+    from langchain_community.embeddings import FastEmbedEmbeddings
+    # pyrefly: ignore[missing-import]
+    from ragas.embeddings import LangchainEmbeddingsWrapper
 
-    async_client = AsyncOpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
-    eval_llm = llm_factory(
-        model    = LLM_MODEL,
-        provider = "openai",
-        client   = async_client,           # ← async client here
+    chat_model = ChatOpenAI(
+        model=LLM_MODEL,
+        api_key=LLM_API_KEY,
+        base_url=LLM_BASE_URL,
     )
-    eval_emb = HuggingfaceEmbeddings(model=EMBEDDING_MODEL_NAME)
+    eval_llm = LangchainLLMWrapper(chat_model)
+    eval_emb = LangchainEmbeddingsWrapper(
+        FastEmbedEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+    )
 
     # ── 4. Score ──────────────────────────────────────────────────────────────
     eval_workers = int(os.getenv("RAGAS_EVAL_WORKERS", "2"))
