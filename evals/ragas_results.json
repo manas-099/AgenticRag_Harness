@@ -1,0 +1,10 @@
+{
+  "scores": {
+    "faithfulness": 0.9016666666666667,
+    "answer_relevancy": 0.6558302400011601,
+    "context_precision": 0.9246777908380345,
+    "context_recall": 0.9126666666666666
+  },
+  "samples_evaluated": 50,
+  "samples_with_contexts": 50
+}
