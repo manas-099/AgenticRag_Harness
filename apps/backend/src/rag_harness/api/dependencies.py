@@ -44,6 +44,7 @@ from rag_harness.config.settings import (
 from rag_harness.infrastructure.cache import InMemoryCache
 from rag_harness.infrastructure.document_parsers import AnyDocParser, DoclingParser, ExtractionQualityGate, PDFStructuralClassifier
 from rag_harness.infrastructure.embeddings import SentenceTransformerEmbedder
+from rag_harness.infrastructure.embeddings.nomic_embedder import NomicEmbedder
 from rag_harness.infrastructure.llm import LLMChain, LLMClientFactory
 from rag_harness.infrastructure.sparse_search import BM25Retriever
 from rag_harness.infrastructure.vector_stores import QdrantChunkStore, QdrantSectionStore
@@ -65,7 +66,12 @@ def get_rag_pipeline() -> RAGPipeline:
     environment_settings = get_environment_settings()
 
     agent_chain, generate_chain = get_llm_chains()
-    embedder = SentenceTransformerEmbedder(embedding_settings)
+    embedder = NomicEmbedder(
+        model=embedding_settings.NOMIC_MODEL,
+        
+        backend=embedding_settings.NOMIC_BACKEND,
+        base_url=embedding_settings.NOMIC_BASE_URL,
+    )
     model_registry = CrossEncoderRegistry(get_rerank_settings(), get_nli_settings())
 
     vector_store = QdrantChunkStore(embedding_settings, environment_settings)
