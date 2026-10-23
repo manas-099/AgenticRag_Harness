@@ -173,6 +173,9 @@ class EmbeddingSettings(_EnvBase):
     FALLBACK_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     EMBEDDING_DIM: int = 768
     QDRANT_COLLECTION: str = "rag_harness_chunks"
+    NOMIC_BACKEND: str = "ollama"          # "ollama" or "lmstudio"
+    NOMIC_BASE_URL: str = "http://localhost:11434"
+    NOMIC_MODEL: str = "nomic-embed-text"
 
 
 class RetrievalSettings(_EnvBase):
