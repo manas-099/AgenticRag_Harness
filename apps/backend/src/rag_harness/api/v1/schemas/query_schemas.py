@@ -35,6 +35,7 @@ class ActionStep(BaseModel):
 class AgenticQueryResponse(BaseModel):
     answer: str
     sources_used: list[str]
+    retrieved_contexts: list[str] = []
     degraded: bool
     degrade_reason: Optional[str] = None
     iterations_used: Optional[int] = None
@@ -42,4 +43,4 @@ class AgenticQueryResponse(BaseModel):
     token_budget_used: int = 0
     action_steps: list[ActionStep] = []
     action_history: list[str] = []
-    from_cache: bool = False   # ← NEW: True when served from cache
+    from_cache: bool = False

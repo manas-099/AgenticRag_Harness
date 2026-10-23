@@ -99,6 +99,7 @@ class RunAgenticQueryUseCase:
             "verification_result": None,
             "final_answer": None,
             "sources_used": [],
+            "retrieved_contexts": [],
             "degraded": False,
             "degrade_reason": None,
         }
@@ -108,6 +109,7 @@ class RunAgenticQueryUseCase:
             return {
                 "answer": result["final_answer"],
                 "sources_used": result.get("sources_used", []),
+                "retrieved_contexts": result.get("retrieved_contexts", []),
                 "degraded": result.get("degraded", False),
                 "degrade_reason": result.get("degrade_reason"),
                 "iterations_used": result["iteration"],
@@ -121,6 +123,7 @@ class RunAgenticQueryUseCase:
             return {
                 "answer": "An unexpected error occurred.",
                 "sources_used": [],
+                "retrieved_contexts": [],
                 "degraded": True,
                 "degrade_reason": str(e),
                 "scratchpad": [],

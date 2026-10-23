@@ -54,9 +54,15 @@ class RetrieveUseCase:
         self.embedder = embedder
         self.settings = settings
 
+    # BGE-base requires this prefix on queries (not on documents at index time).
+    # Without it query vectors land in a different region of the embedding space
+    # than indexed document vectors — recall drops ~30-50%.
+    _BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
+
     def _run_dense(self, query: str, filters: dict | None) -> _LegResult:
         try:
-            query_vector = self.embedder.encode([query])[0]
+            prefixed_query = self._BGE_QUERY_PREFIX + query
+            query_vector = self.embedder.encode([prefixed_query])[0]
             hits = self.vector_store.dense_search(query_vector, self.settings.TOP_K_DENSE, filters)
             return _LegResult(hits=hits)
         except Exception as e:

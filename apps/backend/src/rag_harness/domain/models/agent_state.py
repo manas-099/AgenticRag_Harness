@@ -39,6 +39,7 @@ class AgentState(TypedDict):
     verification_result: Optional[VerificationResult]
     final_answer: Optional[str]
     sources_used: list[str]
+    retrieved_contexts: Annotated[list[str], operator.add]
 
     degraded: bool
     degrade_reason: Optional[str]

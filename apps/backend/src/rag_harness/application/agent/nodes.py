@@ -185,6 +185,11 @@ def make_verify_node(verify_use_case: VerifyAnswerUseCase):
                 "verification_result": result,
                 "final_answer": state["draft_answer"],
                 "sources_used": list(state["retrieved_chunk_registry"].keys()),
+                "retrieved_contexts": [
+                    chunk.raw_text
+                    for chunk in state["retrieved_chunk_registry"].values()
+                    if chunk and chunk.raw_text
+                ],
             }
         else:
             return {

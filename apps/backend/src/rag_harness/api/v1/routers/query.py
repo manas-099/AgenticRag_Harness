@@ -154,6 +154,7 @@ def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag
     return AgenticQueryResponse(
         answer=result["answer"],
         sources_used=result.get("sources_used", []),
+        retrieved_contexts=result.get("retrieved_contexts", []),
         degraded=result.get("degraded", False),
         degrade_reason=result.get("degrade_reason"),
         iterations_used=result.get("iterations_used"),

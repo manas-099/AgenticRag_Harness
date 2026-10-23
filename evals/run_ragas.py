@@ -1,24 +1,26 @@
 """
 Phase 3 — Ragas Evaluation Script
-Evaluates AgenticRAG responses using ragas 0.4.x API.
-LLM  : Configured via environment variables (OpenAI-compatible endpoint)
+Evaluates AgenticRAG responses using ragas 0.4.x collections API.
+LLM  : OpenAI-compatible endpoint configured via .env  (AsyncOpenAI)
 Embs : BAAI/bge-small-en-v1.5 via ragas.embeddings.HuggingFaceEmbeddings
 """
 
+import asyncio
 import json
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
 # pyrefly: ignore[missing-import]
 import requests
-from pathlib import Path
 # pyrefly: ignore[missing-import]
 from dotenv import load_dotenv
 
-# ── Load .env from apps/backend ──────────────────────────────────────────────
+# ── Load .env from apps/backend ───────────────────────────────────────────────
 load_dotenv(Path(__file__).parent.parent / "apps" / "backend" / ".env")
 
-# ── Evaluator LLM endpoint config (strictly loaded from .env) ─────────────────
+# ── Evaluator LLM config ──────────────────────────────────────────────────────
 LLM_BASE_URL = os.getenv("LLM_BASE_URL")
 LLM_API_KEY  = os.getenv("LLM_API_KEY")
 LLM_MODEL    = os.getenv("LLM_MODEL", "default-model")
@@ -27,7 +29,7 @@ if not LLM_BASE_URL or not LLM_API_KEY:
     print("[ERROR] LLM_BASE_URL and LLM_API_KEY must be set in your .env file.")
     sys.exit(1)
 
-# ── Embedding model (same one used by the backend) ───────────────────────────
+# ── Embedding model ───────────────────────────────────────────────────────────
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5")
 
 # ── RAG API ───────────────────────────────────────────────────────────────────
@@ -37,7 +39,7 @@ QUERY_ENDPOINT = f"{RAG_API_BASE}/api/v1/query"
 # ── Test-set path ─────────────────────────────────────────────────────────────
 TEST_SET_PATH = Path(__file__).parent / "test_set.jsonl"
 
-# ── Thresholds ────────────────────────────────────────────────────────────────
+# ── Pass/fail thresholds ──────────────────────────────────────────────────────
 THRESHOLDS = {
     "faithfulness":      0.80,
     "answer_relevancy":  0.75,
@@ -45,26 +47,10 @@ THRESHOLDS = {
     "context_recall":    0.65,
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Ragas imports
-# ─────────────────────────────────────────────────────────────────────────────
-# pyrefly: ignore[missing-import]
-from openai import OpenAI
-# pyrefly: ignore[missing-import]
-from ragas import evaluate, EvaluationDataset
-# pyrefly: ignore[missing-import]
-from ragas.run_config import RunConfig
-# pyrefly: ignore[missing-import]
-from ragas.llms import llm_factory
-# pyrefly: ignore[missing-import]
-from ragas.embeddings import HuggingFaceEmbeddings
-# pyrefly: ignore[missing-import]
-from ragas.metrics.collections import (
-    Faithfulness,
-    AnswerRelevancy,
-    ContextPrecisionWithoutReference,
-    ContextRecall,
-)
+# ── Minimum contexts required for retrieval metrics ───────────────────────────
+#   Samples with empty retrieved_contexts are skipped for those metrics but
+#   still scored for answer_relevancy (which needs no contexts).
+MIN_CONTEXTS_FOR_RETRIEVAL = 1
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -85,19 +71,44 @@ def load_test_set(path: Path) -> list[dict]:
 
 
 def query_rag(question: str) -> tuple[str, list[str]]:
-    """POST to /api/v1/query and return (answer, [context_chunk, ...])."""
+    """
+    POST to /api/v1/query → (answer, [context_chunk, ...]).
+
+    Tries several common response shapes your RAG server might return.
+    Prints the raw response keys on the first call so you can verify.
+    """
     payload = {"question": question}
     try:
         resp = requests.post(QUERY_ENDPOINT, json=payload, timeout=180)
         resp.raise_for_status()
         data = resp.json()
 
-        answer   = data.get("answer", data.get("response", ""))
-        contexts = data.get("contexts", data.get("source_chunks", []))
-        if not contexts and data.get("sources_used"):
-            contexts = data.get("sources_used", [])
+        answer = (
+            data.get("answer")
+            or data.get("response")
+            or data.get("result")
+            or ""
+        )
+
+        # ── Try every key that commonly holds context chunks ──────────────────
+        contexts: list = []
+        for key in ("retrieved_contexts", "contexts", "source_chunks",
+                    "sources_used", "context", "chunks", "documents"):
+            val = data.get(key)
+            if val:
+                contexts = val
+                break
+
+        # Normalise: if list of dicts, extract text field
         if isinstance(contexts, list) and contexts and isinstance(contexts[0], dict):
-            contexts = [c.get("text", c.get("content", str(c))) for c in contexts]
+            contexts = [
+                c.get("text") or c.get("content") or c.get("page_content") or str(c)
+                for c in contexts
+            ]
+
+        # Keep only non-empty strings
+        contexts = [str(c).strip() for c in contexts if str(c).strip()]
+
         return answer, contexts
 
     except requests.exceptions.ConnectionError:
@@ -110,6 +121,143 @@ def query_rag(question: str) -> tuple[str, list[str]]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Scoring
+#
+# Per-metric accepted fields (ragas 0.4.x collections API):
+#   Faithfulness              : user_input, response, retrieved_contexts
+#   AnswerRelevancy           : user_input, response
+#   ContextPrecisionWithout.. : user_input, response, retrieved_contexts
+#   ContextRecall             : user_input, retrieved_contexts, reference
+# ─────────────────────────────────────────────────────────────────────────────
+async def _score_all(
+    samples:  list[dict],
+    eval_llm,
+    eval_emb,
+) -> dict[str, float]:
+    # pyrefly: ignore[missing-import]
+    from ragas.metrics.collections import (
+        AnswerRelevancy,
+        ContextPrecisionWithoutReference,
+        ContextRecall,
+        Faithfulness,
+    )
+
+    faithfulness_metric = Faithfulness(llm=eval_llm)
+    relevancy_metric    = AnswerRelevancy(llm=eval_llm, embeddings=eval_emb)
+    precision_metric    = ContextPrecisionWithoutReference(llm=eval_llm)
+    recall_metric       = ContextRecall(llm=eval_llm)
+
+    eval_workers = int(os.getenv("RAGAS_EVAL_WORKERS", "2"))
+    semaphore    = asyncio.Semaphore(eval_workers)
+
+    totals: dict[str, list[float]] = {
+        "faithfulness":      [],
+        "answer_relevancy":  [],
+        "context_precision": [],
+        "context_recall":    [],
+    }
+
+    context_missing_count = 0
+    scored_count = 0
+    total_samples = len(samples)
+
+    try:
+        # pyrefly: ignore[missing-import]
+        from tqdm.asyncio import tqdm_asyncio
+        has_tqdm = True
+    except ImportError:
+        try:
+            # pyrefly: ignore[missing-import]
+            from tqdm import tqdm
+            has_tqdm = False
+        except ImportError:
+            has_tqdm = False
+
+    async def _score_sample(sample: dict):
+        nonlocal context_missing_count, scored_count
+        q   = sample["user_input"]
+        r   = sample["response"]
+        ctx = sample["retrieved_contexts"]   # may be []
+        ref = sample.get("reference", "")
+        safe = q[:50].encode("ascii", "replace").decode("ascii")
+        has_ctx = bool(ctx and len(ctx) >= MIN_CONTEXTS_FOR_RETRIEVAL)
+
+        async with semaphore:
+            # ── Faithfulness ──────────────────────────────────────────────────
+            if has_ctx:
+                try:
+                    res = await faithfulness_metric.ascore(
+                        user_input         = q,
+                        response           = r,
+                        retrieved_contexts = ctx,
+                    )
+                    totals["faithfulness"].append(float(res.value))
+                except Exception as exc:
+                    print(f"  [WARN] faithfulness failed for '{safe}': {exc}")
+            else:
+                context_missing_count += 1
+
+            # ── AnswerRelevancy (no contexts needed) ──────────────────────────
+            try:
+                res = await relevancy_metric.ascore(
+                    user_input = q,
+                    response   = r,
+                )
+                totals["answer_relevancy"].append(float(res.value))
+            except Exception as exc:
+                print(f"  [WARN] answer_relevancy failed for '{safe}': {exc}")
+
+            # ── ContextPrecision ──────────────────────────────────────────────
+            if has_ctx:
+                try:
+                    res = await precision_metric.ascore(
+                        user_input         = q,
+                        response           = r,
+                        retrieved_contexts = ctx,
+                    )
+                    totals["context_precision"].append(float(res.value))
+                except Exception as exc:
+                    print(f"  [WARN] context_precision failed for '{safe}': {exc}")
+
+            # ── ContextRecall ─────────────────────────────────────────────────
+            if has_ctx:
+                try:
+                    res = await recall_metric.ascore(
+                        user_input         = q,
+                        retrieved_contexts = ctx,
+                        reference          = ref,
+                    )
+                    totals["context_recall"].append(float(res.value))
+                except Exception as exc:
+                    print(f"  [WARN] context_recall failed for '{safe}': {exc}")
+
+            scored_count += 1
+            if not has_tqdm:
+                print(f"  [SCORING {scored_count}/{total_samples}] Completed evaluation for '{safe}'")
+
+    tasks = [_score_sample(s) for s in samples]
+    if has_tqdm:
+        await tqdm_asyncio.gather(*tasks, desc="Scoring samples", total=total_samples)
+    else:
+        await asyncio.gather(*tasks)
+
+    if context_missing_count:
+        print(
+            f"\n  [INFO] {context_missing_count}/{len(samples)} samples had no retrieved_contexts "
+            f"— faithfulness / precision / recall skipped for those."
+        )
+        print(
+            "  [INFO] If this is unexpected, check that your RAG API returns contexts. "
+            "See the 'Diagnosing empty contexts' note at the bottom of this script."
+        )
+
+    return {
+        label: (sum(vals) / len(vals) if vals else float("nan"))
+        for label, vals in totals.items()
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
@@ -117,33 +265,51 @@ def main():
     print("Phase 3 — Ragas Evaluation")
     print("=" * 60)
 
-    # 1. Load test set
+    # ── 1. Load test set ──────────────────────────────────────────────────────
     test_items = load_test_set(TEST_SET_PATH)
 
-    # 2. Query RAG concurrently (2 workers — don't overload single-process server)
+    # ── 2. Query RAG concurrently ─────────────────────────────────────────────
     print("\n[INFO] Querying RAG API with parallel workers...")
-    samples_by_index = {}
+    samples_by_index: dict[int, dict] = {}
     completed_count  = 0
     total_items      = len(test_items)
+    raw_keys_logged  = False   # log response shape once for debugging
 
     def _fetch_item(index: int, item: dict):
-        q  = item["question"]
-        gt = item.get("ground_truth_answer", item.get("answer", ""))
+        nonlocal raw_keys_logged
+        q   = item["question"]
+        gt  = item.get("ground_truth_answer", item.get("answer", ""))
         ans, ctx = query_rag(q)
+
+        # Log the raw response keys the first time so you can verify
+        if not raw_keys_logged:
+            try:
+                resp_data = requests.post(
+                    QUERY_ENDPOINT, json={"question": q}, timeout=30
+                ).json()
+                print(f"\n  [DEBUG] RAG response keys on first call: {list(resp_data.keys())}")
+                print(f"  [DEBUG] contexts value: {repr(ctx[:1]) if ctx else '(empty list)'}\n")
+            except Exception:
+                pass
+            raw_keys_logged = True
+
         return index, q, gt, ans, ctx
 
     max_query_workers = int(os.getenv("RAG_QUERY_WORKERS", "2"))
     with ThreadPoolExecutor(max_workers=max_query_workers) as executor:
-        futures = {executor.submit(_fetch_item, i, item): i
-                   for i, item in enumerate(test_items, 1)}
+        futures = {
+            executor.submit(_fetch_item, i, item): i
+            for i, item in enumerate(test_items, 1)
+        }
         for future in as_completed(futures):
             idx, question, ground_truth, answer, contexts = future.result()
             completed_count += 1
             safe_q = question[:60].encode("ascii", "replace").decode("ascii")
+            ctx_tag = f"[{len(contexts)} ctx]" if contexts else "[NO CTX]"
             if not answer:
                 print(f"  [{completed_count}/{total_items}] [SKIP] Empty answer for '{safe_q}'")
             else:
-                print(f"  [{completed_count}/{total_items}] OK '{safe_q}'")
+                print(f"  [{completed_count}/{total_items}] OK {ctx_tag} '{safe_q}'")
                 samples_by_index[idx] = {
                     "user_input":         question,
                     "response":           answer,
@@ -157,58 +323,41 @@ def main():
         print("[ERROR] No samples collected. Check that the RAG server is running.")
         sys.exit(1)
 
-    print(f"\n[INFO] Collected {len(samples)} samples for evaluation.")
+    ctx_count = sum(1 for s in samples if s["retrieved_contexts"])
+    print(f"\n[INFO] Collected {len(samples)} samples "
+          f"({ctx_count} with contexts, {len(samples)-ctx_count} without).")
 
-    # 3. Build ragas dataset
-    dataset = EvaluationDataset.from_list(samples)
-
-    # 4. Build evaluator LLM using llm_factory → returns InstructorLLM
-    #    ragas.metrics.collections REQUIRES InstructorLLM (not LangchainLLMWrapper)
-    #    InstructorLLM calls the API with n=1 by default — no n=3 issue
+    # ── 3. Build evaluator LLM (AsyncOpenAI) and embeddings ───────────────────
+    #   ragas collections API uses agenerate() internally → must use AsyncOpenAI
     print("\n[INFO] Initialising evaluator LLM and embeddings...")
-    openai_client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
-    eval_llm = llm_factory(LLM_MODEL, client=openai_client)
+    from openai import AsyncOpenAI                  # ← AsyncOpenAI, not OpenAI
+    from ragas.embeddings import HuggingFaceEmbeddings
+    from ragas.llms import llm_factory
 
-    # 5. Build embeddings using ragas native HuggingFaceEmbeddings
-    #    — no LangchainEmbeddingsWrapper / EmbeddingUsageEvent string error
+    async_client = AsyncOpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    eval_llm = llm_factory(
+        model    = LLM_MODEL,
+        provider = "openai",
+        client   = async_client,           # ← async client here
+    )
     eval_emb = HuggingFaceEmbeddings(model=EMBEDDING_MODEL_NAME)
 
-    # 6. Define metrics — pass InstructorLLM from llm_factory to constructors
-    #    collections metrics REQUIRE InstructorLLM, accept it in constructor
-    metrics = [
-        Faithfulness(llm=eval_llm),
-        AnswerRelevancy(llm=eval_llm, embeddings=eval_emb),
-        ContextPrecisionWithoutReference(llm=eval_llm),
-        ContextRecall(llm=eval_llm),
-    ]
-
-    # 7. Run evaluation
+    # ── 4. Score ──────────────────────────────────────────────────────────────
     eval_workers = int(os.getenv("RAGAS_EVAL_WORKERS", "2"))
-    run_config   = RunConfig(max_workers=eval_workers, timeout=180, max_retries=3)
     print(f"\n[INFO] Running ragas evaluation (workers={eval_workers})...")
-    results = evaluate(dataset=dataset, metrics=metrics, run_config=run_config)
+    scores = asyncio.run(_score_all(samples, eval_llm, eval_emb))
 
-
-    # 8. Print results
+    # ── 5. Print results ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)
     print("RESULTS")
     print("=" * 60)
 
-    scores = results.to_pandas().mean(numeric_only=True).to_dict()
-
-    metric_map = {
-        "faithfulness":                            "faithfulness",
-        "answer_relevancy":                        "answer_relevancy",
-        "context_precision_without_reference": "context_precision",
-        "context_recall": "context_recall",
-    }
-
     all_pass = True
-    for raw_key, label in metric_map.items():
-        score     = scores.get(raw_key, None)
-        threshold = THRESHOLDS.get(label, 0.0)
-        if score is None:
+    for label, threshold in THRESHOLDS.items():
+        score = scores.get(label)
+        if score is None or score != score:   # None or NaN
             print(f"  {label:<30} N/A")
+            all_pass = False
             continue
         status = "✅ PASS" if score >= threshold else "❌ FAIL"
         if score < threshold:
@@ -219,12 +368,53 @@ def main():
     print("OVERALL:", "✅ ALL PASS" if all_pass else "❌ SOME METRICS BELOW THRESHOLD")
     print("=" * 60)
 
-    # 9. Save detailed results
-    out_path   = Path(__file__).parent / "ragas_results.json"
-    results_df = results.to_pandas()
-    results_df.to_json(out_path, orient="records", indent=2)
-    print(f"\n[INFO] Detailed results saved to {out_path}")
+    # ── 6. Save detailed results ──────────────────────────────────────────────
+    out_path = Path(__file__).parent / "ragas_results.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "scores": {k: (None if (v != v) else v) for k, v in scores.items()},
+                "samples_evaluated":      len(samples),
+                "samples_with_contexts":  ctx_count,
+            },
+            f, indent=2,
+        )
+    print(f"\n[INFO] Results saved to {out_path}")
+
+    # ── 7. Diagnosing empty contexts ──────────────────────────────────────────
+    if ctx_count == 0:
+        print("""
+[HELP] All 50 samples returned empty retrieved_contexts.
+       This means your RAG /api/v1/query endpoint is not returning context chunks.
+
+       Check:
+         1. What keys does your API response actually contain?
+            → The [DEBUG] line above shows them.  Add the right key to
+              query_rag() in this script under the 'contexts' loop.
+
+         2. Does your API return contexts under a nested key?
+            e.g.  data["result"]["source_documents"]
+            → Add a custom extraction block in query_rag() for that shape.
+
+         3. Is context retrieval disabled in your backend?
+            → Check your backend config / RAG chain to ensure retriever
+              is wired and returning source documents.
+
+       Without contexts, faithfulness / context_precision / context_recall
+       cannot be computed.  Only answer_relevancy will score.
+""")
 
 
 if __name__ == "__main__":
     main()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DIAGNOSING EMPTY CONTEXTS — quick one-liner to inspect your API:
+#
+#   python -c "
+#   import requests, json
+#   r = requests.post('http://localhost:8000/api/v1/query',
+#                     json={'question': 'test'}, timeout=30)
+#   print(json.dumps(r.json(), indent=2, default=str))
+#   "
+# ─────────────────────────────────────────────────────────────────────────────

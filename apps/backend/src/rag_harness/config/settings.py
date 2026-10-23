@@ -180,7 +180,7 @@ class RetrievalSettings(_EnvBase):
 
     TOP_K_DENSE: int = 12
     TOP_K_SPARSE: int = 12
-    TOP_K_FINAL_RERANK: int = 8
+    TOP_K_FINAL_RERANK: int = 12   # raised from 8 — gives reranker more room for multi-chunk questions
     RRF_K: int = 60
     MIN_RELEVANCE_SCORE: float = 0.15
     DEDUP_SIMILARITY_THRESHOLD: float = 0.92
