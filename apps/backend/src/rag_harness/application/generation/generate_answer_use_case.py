@@ -33,7 +33,7 @@ class GenerateAnswerUseCase:
         for rc in chunks:
             meta = rc.chunk.metadata
             blocks.append(
-                f"[Doc: {meta.doc_id}, Page: {meta.page_num}, chunk_id: {rc.chunk.chunk_id}]\n{rc.chunk.raw_text}"
+                f"[Doc: {meta.doc_id}, Page: {meta.page_num}]\n{rc.chunk.raw_text}"
             )
         return "\n\n---\n\n".join(blocks)
 

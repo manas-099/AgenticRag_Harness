@@ -8,6 +8,7 @@ Embs : BAAI/bge-small-en-v1.5 via ragas.embeddings.HuggingFaceEmbeddings
 import asyncio
 import json
 import os
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -57,6 +58,17 @@ MIN_CONTEXTS_FOR_RETRIEVAL = 1
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+def strip_inline_citations(text: str) -> str:
+    """
+    Remove [Doc: ..., Page: ..., chunk_id: ...] citation blocks from answer text.
+    These blocks are for the user UI only — they are noise to Ragas AnswerRelevancy,
+    which generates reverse questions from the answer text. UUID chunk_ids cause the
+    synthetic questions to anchor on document identifiers instead of answer content,
+    deflating cosine similarity with the original question.
+    """
+    return re.sub(r'\[Doc:[^\]]+\]', '', text).strip()
+
+
 def load_test_set(path: Path) -> list[dict]:
     if not path.exists():
         print(f"[ERROR] Test set not found: {path}")
@@ -291,6 +303,7 @@ def main():
         q   = item["question"]
         gt  = item.get("ground_truth_answer", item.get("answer", ""))
         ans, ctx = query_rag(q)
+        ans = strip_inline_citations(ans)
 
         # Log the raw response keys the first time so you can verify
         if not raw_keys_logged:
@@ -337,6 +350,22 @@ def main():
     ctx_count = sum(1 for s in samples if s["retrieved_contexts"])
     print(f"\n[INFO] Collected {len(samples)} samples "
           f"({ctx_count} with contexts, {len(samples)-ctx_count} without).")
+
+    # ── Diagnose insufficient-info answers ────────────────────────────────────
+    INSUFFICIENT_PREFIX = "I don't have enough information"
+    insufficient_samples = [
+        s for s in samples
+        if s["response"].startswith(INSUFFICIENT_PREFIX)
+    ]
+    if insufficient_samples:
+        print(f"\n[DIAG] Insufficient-info answers: {len(insufficient_samples)}/{len(samples)}")
+        print("       These score near-zero on answer_relevancy. Questions affected:")
+        for s in insufficient_samples[:10]:
+            print(f"         → {s['user_input'][:90]}")
+        if len(insufficient_samples) > 10:
+            print(f"         ... and {len(insufficient_samples) - 10} more")
+    else:
+        print(f"\n[DIAG] Insufficient-info answers: 0/{len(samples)} ✓")
 
     # ── 3. Build evaluator LLM (AsyncOpenAI) and embeddings ───────────────────
     #   ragas collections API uses agenerate() internally → must use AsyncOpenAI

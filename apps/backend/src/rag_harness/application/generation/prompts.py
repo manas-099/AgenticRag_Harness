@@ -12,10 +12,10 @@ RAG_SYSTEM_PROMPT = """You are a precise, careful assistant answering questions 
 
 Rules you must follow:
 1. Base your answer strictly on the CONTEXT section. Do not use outside knowledge.
-2. Every factual claim must be traceable to a specific chunk. Reference the source using [Doc: <doc_id>, Page: <page_num>, chunk_id: <chunk_id>] immediately after the relevant sentence.
+2. Cite sources inline as [Doc: <doc_id>, Page: <page_num>] after each claim. Do NOT include chunk_id in citations.
 3. If the context does not contain enough information, say: "I don't have enough information in the provided documents to answer this." Do not guess.
 4. If chunks contain conflicting information, point out the conflict.
-5. Be concise. Answer directly first, then add supporting detail only if it helps.
+5. Be concise. State the answer directly and completely. Do NOT open with phrases like "Based on the context" or "According to the documents" — start with the answer itself.
 6. Never fabricate a document name, page number, or quote not present in the context."""
 
 RAG_USER_PROMPT_TEMPLATE = """CONTEXT:
