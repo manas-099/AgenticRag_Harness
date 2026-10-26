@@ -5,8 +5,12 @@ stuck-loop detector (registry size unchanged over N searches -> force degrade).
 
 from __future__ import annotations
 
+import logging
+
 from rag_harness.config.settings import HarnessLoopSettings
 from rag_harness.domain.models import AgentState
+
+logger = logging.getLogger("rag_harness.agent_routing")
 
 
 def _is_stuck_in_loop(state: AgentState, window: int) -> bool:
@@ -39,16 +43,33 @@ def make_route_after_dispatch(settings: HarnessLoopSettings):
             else:
                 return "generate"
 
+        has_chunks = bool(state.get("retrieved_chunk_registry"))
+
         if state["iteration"] >= state["max_iterations"]:
+            if has_chunks:
+                logger.info("Max iterations reached with retrieved chunks — proceeding to generate final answer")
+                return "generate"
             state["degrade_reason"] = "max_iterations_exceeded"
             return "degrade"
+
         if state["token_budget_used"] >= state["max_token_budget"]:
+            if has_chunks:
+                logger.info("Token budget exceeded with retrieved chunks — proceeding to generate final answer")
+                return "generate"
             state["degrade_reason"] = "token_budget_exceeded"
             return "degrade"
+
         if len(state["search_attempts"]) >= settings.MAX_SEARCH_ATTEMPTS:
+            if has_chunks:
+                logger.info("Max search attempts reached with retrieved chunks — proceeding to generate final answer")
+                return "generate"
             state["degrade_reason"] = "max_search_attempts_exceeded"
             return "degrade"
+
         if _is_stuck_in_loop(state, settings.STUCK_LOOP_WINDOW):
+            if has_chunks:
+                logger.info("Stuck loop detected with retrieved chunks — proceeding to generate final answer")
+                return "generate"
             state["degrade_reason"] = "stuck_loop_no_new_chunks"
             return "degrade"
 

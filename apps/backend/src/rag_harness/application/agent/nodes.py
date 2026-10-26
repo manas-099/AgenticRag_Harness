@@ -201,7 +201,8 @@ def make_verify_node(verify_use_case: VerifyAnswerUseCase):
 
 
 def degrade_node(state: AgentState) -> AgentState:
-    logger.warning(f"[degrade_node] reason={state.get('degrade_reason')}")
+    reason = state.get("degrade_reason") or "unspecified_degradation"
+    logger.warning(f"[degrade_node] reason={reason}")
 
     if not state.get("final_answer"):
         vr = state.get("verification_result")
@@ -214,6 +215,7 @@ def degrade_node(state: AgentState) -> AgentState:
             if grounded_texts:
                 return {
                     "degraded": True,
+                    "degrade_reason": reason,
                     "final_answer": (
                         " ".join(grounded_texts) +
                         "\n\n(Note: some claims could not be fully verified and were removed.)"
@@ -221,9 +223,10 @@ def degrade_node(state: AgentState) -> AgentState:
                 }
         return {
             "degraded": True,
+            "degrade_reason": reason,
             "final_answer": (
                 "I couldn't produce a fully verified answer to this question. "
                 "Please rephrase, or consult the source documents directly."
             ),
         }
-    return {"degraded": True}
+    return {"degraded": True, "degrade_reason": reason}

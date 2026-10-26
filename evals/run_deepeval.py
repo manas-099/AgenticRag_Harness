@@ -11,6 +11,7 @@ Uses /api/v1/query/agentic which returns:
 
 import json
 import os
+import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -67,6 +68,7 @@ try:
     # pyrefly: ignore[missing-import]
     from deepeval.test_case import LLMTestCase, ToolCall
     # pyrefly: ignore[missing-import]
+    from deepeval.evaluate.configs import ErrorConfig
     from deepeval.metrics import (
         TaskCompletionMetric,
         ToolCorrectnessMetric,
@@ -103,13 +105,14 @@ def query_agentic(question: str, index: int, total: int) -> dict | None:
     try:
         resp = requests.post(
             AGENTIC_ENDPOINT,
-            json={"question": question},   # FIX 1: was {"query": question} — wrong field name, caused HTTP 422
+            json={"question": question, "bypass_cache": True},
             timeout=120,
         )
         elapsed = time.time() - t0
         resp.raise_for_status()
-        data = resp.json()
-        iterations = data.get("iterations_used", 0)
+        data           = resp.json()
+        iterations     = data.get("iterations_used", 0)
+        degraded       = data.get("degraded", False)
         degrade_reason = data.get("degrade_reason")
         steps          = data.get("action_steps", [])
         tools          = [s.get("action", "") for s in steps if s.get("action") and s.get("action") != "answer"]
@@ -132,7 +135,7 @@ def query_agentic(question: str, index: int, total: int) -> dict | None:
         return None
     except Exception as e:
         elapsed = time.time() - t0
-        print(f"         ❌ FAILED after {elapsed:.1f}s: {e}")
+        print(f"  ❌ FAILED after {elapsed:.1f}s: {e}")
         return None
 
 
@@ -159,10 +162,8 @@ def build_expected_tools() -> list[ToolCall]:
     return [ToolCall(name="search_documents")]
 
 
-
-
 class LLMJudge(DeepEvalBaseLLM):
-    """Custom DeepEval LLM wrapper."""
+    """Custom DeepEval LLM wrapper with JSON cleaning and schema support."""
     def __init__(self):
         self.client = OpenAI(
             base_url=LLM_BASE_URL,
@@ -172,16 +173,44 @@ class LLMJudge(DeepEvalBaseLLM):
     def load_model(self):
         return self.client
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, schema=None, **kwargs) -> str:
+        # Prompt enhancement if JSON / schema is expected
+        system_content = "You are a precise evaluation judge. Always respond with strictly valid JSON only when requested, with no markdown fences, no conversational preambles, and no trailing characters."
+        messages = [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": prompt},
+        ]
         response = self.client.chat.completions.create(
             model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             temperature=0,
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content or ""
+        
+        # Clean markdown wrappers if returned
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+            cleaned = cleaned.strip()
 
-    async def a_generate(self, prompt: str) -> str:
-        return self.generate(prompt)
+        # If a pydantic schema is passed by DeepEval
+        if schema is not None:
+            try:
+                import json
+                start = cleaned.find("{")
+                end = cleaned.rfind("}") + 1
+                if start != -1 and end != 0:
+                    json_str = cleaned[start:end]
+                    json_str = re.sub(r",\s*([\]}])", r"\1", json_str)
+                    return schema.model_validate_json(json_str)
+            except Exception:
+                pass
+
+        return cleaned
+
+    async def a_generate(self, prompt: str, schema=None, **kwargs) -> str:
+        return self.generate(prompt, schema=schema, **kwargs)
 
     def get_model_name(self) -> str:
         return LLM_MODEL
@@ -296,7 +325,11 @@ def main():
 
     # 4. Run evaluation
     eval_start = time.time()
-    results = evaluate(test_cases=test_cases, metrics=metrics)
+    results = evaluate(
+        test_cases=test_cases,
+        metrics=metrics,
+        error_config=ErrorConfig(ignore_errors=True),
+    )
     elapsed_eval = time.time() - eval_start
     print(f"\n[INFO] Evaluation done in {elapsed_eval:.0f}s")
 

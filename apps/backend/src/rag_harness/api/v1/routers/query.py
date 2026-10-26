@@ -66,7 +66,7 @@ def query_agentic(request: QueryRequest, pipeline: RAGPipeline = Depends(get_rag
 
     # --- Cache check (agentic) ---
     cache_key = _agentic_cache_key(request.question)
-    cached_answer = pipeline.cache.query_cache.get(cache_key)
+    cached_answer = None if request.bypass_cache else pipeline.cache.query_cache.get(cache_key)
     if cached_answer is not None:
         # Rebuild a minimal response from cache
         cached_debug = _last_agent_debug if _last_agent_debug.get("query") == request.question else {}

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 class QueryRequest(BaseModel):
     question: str
     doc_version_key: str = "v1"
+    bypass_cache: bool = False
 
 
 class QueryResponse(BaseModel):

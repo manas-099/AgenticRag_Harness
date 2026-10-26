@@ -78,9 +78,10 @@ class AgentDecisionEngine:
             f"Retrieved chunks so far:\n{registry_summary}\n\n"
             f"Past search queries already tried:\n{past_queries_str}\n\n"
             f"Iterations used: {state['iteration']} / {state['max_iterations']}\n\n"
-            f"What is your next action? "
-            f"If you have retrieved enough relevant content above to answer the question, "
-            f"choose 'answer'. If not, search with a DIFFERENT query than the ones above."
+            f"DECISION INSTRUCTION:\n"
+            f"- If you have already executed at least one search AND the retrieved chunks contain relevant information that answers the question (even partially or directly), you MUST choose 'answer' now.\n"
+            f"- Do NOT keep searching repeatedly if relevant chunks are already retrieved.\n"
+            f"- Only search if the retrieved chunks are completely irrelevant or empty."
         )
 
         try:
