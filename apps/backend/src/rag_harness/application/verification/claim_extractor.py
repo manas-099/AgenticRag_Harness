@@ -41,11 +41,15 @@ class ClaimExtractor:
                 max_tokens=1000,
                 temperature=0.0,
             )
+            backend_name = getattr(self.llm_client, "last_backend_used", "unknown")
             parsed = ClaimList.model_validate_json(response)
-            logger.info(f"Extracted {len(parsed.claims)} structured claims")
+            logger.info(f"Extracted {len(parsed.claims)} structured claims using backend '{backend_name}'")
             return parsed.claims
         except Exception as e:
-            logger.error(f"Structured claim extraction failed: {e} — falling back to regex")
+            backend_name = getattr(self.llm_client, "last_backend_used", "unknown")
+            logger.error(
+                f"Structured claim extraction failed on backend '{backend_name}': {e} — falling back to regex"
+            )
             return self._regex_fallback(answer_text)
 
     def _regex_fallback(self, answer_text: str) -> list[Claim]:
@@ -54,7 +58,13 @@ class ClaimExtractor:
         claims = []
         sentences = re.split(r"(?<=[.!?])\s+", answer_text)
         for sentence in sentences:
-            cited_ids = re.findall(r"chunk_id:\s*([\w-]+)", sentence)
+            # Check for chunk_id citations (legacy/test format) or [Doc: <doc_id>, Page: <page_num>]
+            chunk_citations = re.findall(r"chunk_id:\s*([\w-]+)", sentence)
+            doc_citations = re.findall(r"\[(?:Doc|doc):\s*([^,\]]+)(?:,\s*(?:Page|page):\s*([^\]]+))?\]", sentence)
+            cited_ids = chunk_citations + [
+                f"{doc.strip()}:p{page.strip()}" if page else doc.strip()
+                for doc, page in doc_citations
+            ]
             if cited_ids:
-                claims.append(Claim(claim_text=sentence, cited_chunk_ids=cited_ids))
+                claims.append(Claim(claim_text=sentence.strip(), cited_chunk_ids=cited_ids))
         return claims

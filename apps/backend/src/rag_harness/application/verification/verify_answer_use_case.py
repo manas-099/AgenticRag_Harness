@@ -74,8 +74,13 @@ def _build_chunks_block(chunk_registry: dict[str, Chunk]) -> str:
     """Build a readable source block from the chunk registry."""
     blocks = []
     for cid, chunk in chunk_registry.items():
-        preview = chunk.raw_text[:600]
-        blocks.append(f"[chunk_id: {cid[:12]}]\n{preview}")
+        chunk_len = len(chunk.raw_text)
+        truncation_len = None  # Full chunk text provided to verifier to match generator
+        logger.info(
+            f"Building verification chunk block for {cid[:12]}: "
+            f"chunk length={chunk_len}, truncation length used={truncation_len if truncation_len is not None else 'None (untruncated)'}"
+        )
+        blocks.append(f"[chunk_id: {cid[:12]}]\n{chunk.raw_text}")
     return "\n\n---\n\n".join(blocks)
 
 
