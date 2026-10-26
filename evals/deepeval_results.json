@@ -1,0 +1,81 @@
+[
+  {
+    "question": "What must an NBFC include in the loan application form regarding the documents to be submitted?",
+    "answer": "I couldn't produce a fully verified answer to this question. Please rephrase, or consult the source documents directly.",
+    "tools_called": [
+      "search_documents",
+      "get_page",
+      "search_documents",
+      "search_documents",
+      "search_documents_reformulated"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 0.0,
+        "passed": false,
+        "reason": "The system failed to provide any information regarding the user's specific question, resulting in zero goal achievement."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 0.0,
+        "passed": false,
+        "reason": "The score is 0.00 because the output failed to provide any information regarding NBFC requirements, instead offering only meta-commentary, requests for clarification, and procedural instructions that do not address the user's specific question."
+      }
+    }
+  },
+  {
+    "question": "Within how many days must an NBFC convey its consent or objection when a borrower requests transfer of a borrowal account?",
+    "answer": "An NBFC shall convey its consent or objection regarding a borrower's request for a transfer of a borrowal account within 21 days from the date the request is received [Doc: nbfc_rbc_2025, Page: 8].",
+    "tools_called": [
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system accurately identified the specific number of days (21 days) and provided the exact source and page number for the information, fully satisfying the user's goal."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The score is 1.00 because the response is perfectly relevant and directly addresses the user's question without any unnecessary or irrelevant information."
+      }
+    }
+  },
+  {
+    "question": "What is the asset size threshold that places a non-deposit taking NBFC in the Middle Layer under Scale Based Regulation?",
+    "answer": "Non-deposit taking NBFCs are classified in the Middle Layer when they have an asset size of ₹1,000 crore and above [Doc: nbfc_sbr_2023, Page: 4, chunk_id: a6573436-f25c-4e40-9d30-56f5d7092908]. Once an NBFC reaches this asset size of ₹1,000 crore or above, it becomes subject to the regulatory requirements of Section III, regardless of whether it held such assets on the date of its last balance sheet [Doc: nbfc_sbr_2023, Page: 6, chunk_id: f451affc-5869-4993-ad5e-1a07cc19b19a]. Additionally, for NBFCs that are part of a common Group or floated by a common set of promoters, the total assets of all NBFCs in the Group are consolidated to determine if they meet the threshold for Middle Layer classification [Doc: nbfc_sbr_2023, Page: 6, chunk_id: f451affc-5869-4993-ad5e-1a07cc19b19a].",
+    "tools_called": [
+      "search_documents",
+      "search_documents",
+      "search_documents",
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system accurately identified the specific asset size threshold (₹1,000 crore and above) and included the relevant detail regarding consolidated assets for NBFCs in a common group, directly answering the user's goal."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The score is 1.00 because the output directly and accurately addresses the specific regulatory question without any irrelevant information."
+      }
+    }
+  }
+]
