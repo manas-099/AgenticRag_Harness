@@ -38,3 +38,9 @@ qdrant_local_storage_sections/
 apps/frontend/node_modules/
 
 CHANGES.md
+
+trashed/
+
+eval_issues.json
+
+per/
