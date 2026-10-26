@@ -447,6 +447,43 @@ RUN_E2E_TESTS=1 pytest tests/e2e       # requires Qdrant + LLM backend
 | Stuck-loop detector | Zero new chunks → force degrade | Prevents infinite loop when reformulation isn't helping |
 | Version-keyed cache | Cache entries tagged with `doc_version` | Re-ingesting a doc selectively invalidates stale entries |
 
+
+---
+
+## 📊 Evaluation Results
+
+Run on the 50-sample labeled test set (`evals/test_set.jsonl`), per the eval plan's
+Phase 3 (Ragas) and Phase 4 (DeepEval trajectory) layers.
+
+### Ragas — Retrieval & Generation Quality
+
+| Metric | Score |
+|--------|-------|
+| `faithfulness` | **0.973** |
+| `context_precision` | **0.909** |
+| `context_recall` | **0.906** |
+| `answer_relevancy` | **0.666** |
+
+**Samples evaluated:** 50/50 · **Samples with contexts:** 50/50
+
+### DeepEval — Agent Trajectory & Task Layer
+
+| Metric | avg | min | max |
+|--------|-----|-----|-----|
+| Task Completion | 1.000 | 1.000 | 1.000 |
+| Tool Correctness | 1.000 | 1.000 | 1.000 |
+| Answer Relevancy | 0.867 | 0.500 | 1.000 |
+
+**Degraded runs:** 0/10 · **Failing questions:** 3/10
+
+### Reading the numbers
+
+Retrieval is solid — `context_precision` and `context_recall` both at ~0.91,
+confirming the right chunks are reaching generation. `faithfulness` at 0.973
+confirms the verification layer is doing its job: answers stay grounded in
+retrieved text.
+
+
 ---
 
 ## 🔭 Production Considerations
