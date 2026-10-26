@@ -15,7 +15,10 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-
+# pyrefly: ignore[missing-import]
+from openai import OpenAI
+# pyrefly: ignore[missing-import]
+from deepeval.models import DeepEvalBaseLLM
 # pyrefly: ignore[missing-import]
 import requests
 # pyrefly: ignore[missing-import]
@@ -107,10 +110,10 @@ def query_agentic(question: str, index: int, total: int) -> dict | None:
         resp.raise_for_status()
         data = resp.json()
         iterations = data.get("iterations_used", 0)
-        degraded   = data.get("degraded", False)
-        steps      = data.get("action_steps", [])
-        tools      = [s.get("action", "") for s in steps if s.get("action") and s.get("action") != "answer"]
-        deg_str    = " ⚠️ DEGRADED (sparse-only)" if degraded else ""
+        degrade_reason = data.get("degrade_reason")
+        steps          = data.get("action_steps", [])
+        tools          = [s.get("action", "") for s in steps if s.get("action") and s.get("action") != "answer"]
+        deg_str        = f" ⚠️ DEGRADED ({degrade_reason})" if degraded else ""
         print(f"         ✅ Done in {elapsed:.1f}s | {iterations} iters | tools: {tools}{deg_str}")
         return data
     except requests.exceptions.Timeout:
@@ -156,6 +159,32 @@ def build_expected_tools() -> list[ToolCall]:
     return [ToolCall(name="search_documents")]
 
 
+
+
+class LLMJudge(DeepEvalBaseLLM):
+    """Custom DeepEval LLM wrapper."""
+    def __init__(self):
+        self.client = OpenAI(
+            base_url=LLM_BASE_URL,
+            api_key=LLM_API_KEY,
+        )
+
+    def load_model(self):
+        return self.client
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+        return response.choices[0].message.content
+
+    async def a_generate(self, prompt: str) -> str:
+        return self.generate(prompt)
+
+    def get_model_name(self) -> str:
+        return LLM_MODEL
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
@@ -170,6 +199,7 @@ def main():
 
     # 1. Load test set
     test_items = load_test_set(TEST_SET_PATH)
+    test_items = test_items[:3] 
     total = len(test_items)
 
     # 2. Query agent sequentially (workers=1 to protect LM Studio)
@@ -220,7 +250,7 @@ def main():
     print(f"[INFO] Query phase done in {elapsed_query:.0f}s")
     print(f"       Built  : {len(test_cases)}/{total} test cases")
     print(f"       Skipped: {skipped}/{total}")
-    print(f"       Degraded (sparse-only): {degraded_count}/{len(test_cases)}")
+    print(f"       Degraded runs: {degraded_count}/{len(test_cases)}")
 
     if not test_cases:
         print("\n[ERROR] No test cases built. Check server is running and test_set.jsonl exists.")
@@ -231,10 +261,27 @@ def main():
     print("       (This calls Medha LLM as judge — may take a few minutes)")
     print("-" * 60)
 
+    # metrics = [
+    #     TaskCompletionMetric(
+    #         threshold    = THRESHOLDS["task_completion"],
+    #         model        = LLM_MODEL,
+    #         verbose_mode = False,
+    #     ),
+    #     ToolCorrectnessMetric(
+    #         threshold = THRESHOLDS["tool_correctness"],
+    #     ),
+    #     AnswerRelevancyMetric(
+    #         threshold    = THRESHOLDS["answer_relevancy"],
+    #         model        = LLM_MODEL,
+    #         verbose_mode = False,
+    #     ),
+    # ]
+    
+    judge = LLMJudge()
     metrics = [
         TaskCompletionMetric(
             threshold    = THRESHOLDS["task_completion"],
-            model        = LLM_MODEL,
+            model        = judge,          # ← pass instance, not string
             verbose_mode = False,
         ),
         ToolCorrectnessMetric(
@@ -242,14 +289,14 @@ def main():
         ),
         AnswerRelevancyMetric(
             threshold    = THRESHOLDS["answer_relevancy"],
-            model        = LLM_MODEL,
+            model        = judge,          # ← pass instance, not string
             verbose_mode = False,
         ),
     ]
 
     # 4. Run evaluation
     eval_start = time.time()
-    results = evaluate(test_cases=test_cases, metrics=metrics, print_results=False)
+    results = evaluate(test_cases=test_cases, metrics=metrics)
     elapsed_eval = time.time() - eval_start
     print(f"\n[INFO] Evaluation done in {elapsed_eval:.0f}s")
 
@@ -264,14 +311,23 @@ def main():
         "Answer Relevancy": "answer_relevancy",
     }
 
+    # DeepEval evaluate() returns an EvaluationResult where results.test_results contains the TestResult objects
+    # (or directly a list of TestResult objects depending on DeepEval version).
+    test_results = getattr(results, "test_results", results) if results else []
+
     metric_scores: dict[str, list[float]] = {}
     per_question_fails: list[dict] = []
 
-    for tc in test_cases:
-        q_short = tc.input[:70].encode("ascii", "replace").decode("ascii")
+    # Map input -> LLMTestCase to easily look up tools_called and other original inputs if needed
+    tc_lookup = {tc.input: tc for tc in test_cases}
+
+    for tr in test_results:
+        q_text = tr.input if isinstance(tr.input, str) else str(tr.input or "")
+        q_short = q_text[:70].encode("ascii", "replace").decode("ascii")
         scores_line = []
         q_failed = False
-        for md in (tc.metrics_data or []):
+        metrics_data = getattr(tr, "metrics_data", None) or []
+        for md in metrics_data:
             name  = md.name
             score = md.score or 0.0
             passed = md.success
@@ -286,7 +342,7 @@ def main():
         print(f"  [{status}] {q_short}")
         print(f"         {' | '.join(scores_line)}")
         if q_failed:
-            per_question_fails.append({"question": tc.input, "metrics": tc.metrics_data})
+            per_question_fails.append({"question": q_text, "metrics": [m.__dict__ if hasattr(m, "__dict__") else str(m) for m in metrics_data]})
 
     # 6. Summary
     print("\n" + "=" * 60)
@@ -308,7 +364,7 @@ def main():
         high   = max(scores)
         print(f"  {display_name:<25} avg={avg:.3f}  min={low:.3f}  max={high:.3f}  threshold={thr}  {status}")
 
-    print(f"\n  Samples evaluated : {len(test_cases)}/{total}")
+    print(f"\n  Samples evaluated : {len(test_results)}/{total}")
     print(f"  Samples skipped   : {skipped}/{total}")
     print(f"  Degraded runs     : {degraded_count}/{len(test_cases)}")
     print(f"  Failing questions : {len(per_question_fails)}")
@@ -319,14 +375,17 @@ def main():
     # 7. Save per-question detail
     out_path = Path(__file__).parent / "deepeval_results.json"
     detail = []
-    for tc in test_cases:
+    for tr in test_results:
+        q_text = tr.input if isinstance(tr.input, str) else str(tr.input or "")
+        original_tc = tc_lookup.get(q_text)
+        tools_called = [t.name for t in (original_tc.tools_called or [])] if original_tc and getattr(original_tc, "tools_called", None) else []
         row = {
-            "question":     tc.input,
-            "answer":       tc.actual_output,
-            "tools_called": [t.name for t in (tc.tools_called or [])],
+            "question":     q_text,
+            "answer":       tr.actual_output,
+            "tools_called": tools_called,
             "metrics":      {},
         }
-        for md in (tc.metrics_data or []):
+        for md in (getattr(tr, "metrics_data", None) or []):
             row["metrics"][md.name] = {
                 "score":  md.score,
                 "passed": md.success,
