@@ -1,19 +1,21 @@
 [
   {
     "question": "What must an NBFC include in the loan application form regarding the documents to be submitted?",
-    "answer": "I couldn't produce a fully verified answer to this question. Please rephrase, or consult the source documents directly.",
+    "answer": "The loan application form shall indicate the documents required to be submitted with the application form [Doc: nbfc_rbc_2025, Page: 7].",
     "tools_called": [
       "search_documents",
       "get_page",
       "search_documents",
+      "get_page",
       "search_documents",
-      "search_documents_reformulated"
+      "get_page",
+      "search_documents"
     ],
     "metrics": {
       "Task Completion": {
-        "score": 0.0,
-        "passed": false,
-        "reason": "The system failed to provide any information regarding the user's specific question, resulting in zero goal achievement."
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system directly answered the user's goal by identifying the specific requirement for the loan application form and provided a specific regulatory reference to support the finding."
       },
       "Tool Correctness": {
         "score": 1.0,
@@ -21,9 +23,9 @@
         "reason": "All expected tools ['search_documents'] were called (order not considered)."
       },
       "Answer Relevancy": {
-        "score": 0.0,
+        "score": 0.5,
         "passed": false,
-        "reason": "The score is 0.00 because the output failed to provide any information regarding NBFC requirements, instead offering only meta-commentary, requests for clarification, and procedural instructions that do not address the user's specific question."
+        "reason": "The score is 0.50 because while the output acknowledges the topic, it includes a citation that fails to provide the specific information requested in the input."
       }
     }
   },
@@ -37,7 +39,7 @@
       "Task Completion": {
         "score": 1.0,
         "passed": true,
-        "reason": "The system accurately identified the specific number of days (21 days) and provided the exact source and page number for the information, fully satisfying the user's goal."
+        "reason": "The system accurately identified the specific number of days (21 days) requested by the user and provided the exact regulatory context and source for the information."
       },
       "Tool Correctness": {
         "score": 1.0,
@@ -45,15 +47,15 @@
         "reason": "All expected tools ['search_documents'] were called (order not considered)."
       },
       "Answer Relevancy": {
-        "score": 1.0,
-        "passed": true,
-        "reason": "The score is 1.00 because the response is perfectly relevant and directly addresses the user's question without any unnecessary or irrelevant information."
+        "score": 0.5,
+        "passed": false,
+        "reason": "The score is 0.50 because the output provides a document citation rather than directly answering the specific question regarding the number of days required for an NBFC to convey consent or objection."
       }
     }
   },
   {
     "question": "What is the asset size threshold that places a non-deposit taking NBFC in the Middle Layer under Scale Based Regulation?",
-    "answer": "Non-deposit taking NBFCs are classified in the Middle Layer when they have an asset size of ₹1,000 crore and above [Doc: nbfc_sbr_2023, Page: 4, chunk_id: a6573436-f25c-4e40-9d30-56f5d7092908]. Once an NBFC reaches this asset size of ₹1,000 crore or above, it becomes subject to the regulatory requirements of Section III, regardless of whether it held such assets on the date of its last balance sheet [Doc: nbfc_sbr_2023, Page: 6, chunk_id: f451affc-5869-4993-ad5e-1a07cc19b19a]. Additionally, for NBFCs that are part of a common Group or floated by a common set of promoters, the total assets of all NBFCs in the Group are consolidated to determine if they meet the threshold for Middle Layer classification [Doc: nbfc_sbr_2023, Page: 6, chunk_id: f451affc-5869-4993-ad5e-1a07cc19b19a].",
+    "answer": "A non-deposit taking NBFC is placed in the Middle Layer when it has an asset size of ₹1,000 crore and above [Doc: nbfc_sbr_2023, Page: 4]. Once an NBFC reaches this asset size, it shall be subject to the regulatory requirements as per Section III of the Directions, regardless of whether it possessed such assets on the date of its last balance sheet [Doc: nbfc_sbr_2023, Page: 6].",
     "tools_called": [
       "search_documents",
       "search_documents",
@@ -64,7 +66,34 @@
       "Task Completion": {
         "score": 1.0,
         "passed": true,
-        "reason": "The system accurately identified the specific asset size threshold (₹1,000 crore and above) and included the relevant detail regarding consolidated assets for NBFCs in a common group, directly answering the user's goal."
+        "reason": "The system accurately identified the specific asset size threshold (₹1,000 crore and above) required to classify a non-deposit taking NBFC as being in the Middle Layer under the Scale Based Regulation."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 0.6666666666666666,
+        "passed": false,
+        "reason": "The score is 0.67 because while the output addresses the topic, it includes irrelevant information regarding the timing and applicability of regulatory requirements instead of focusing solely on defining the specific asset size threshold requested."
+      }
+    }
+  },
+  {
+    "question": "Which NBFC types are mandated to always remain in the Base Layer, regardless of their asset size?",
+    "answer": "The following NBFC types will always remain in the Base Layer of the regulatory structure:\n*   NBFC-Peer to Peer Lending Platform (NBFC-P2P) [Doc: nbfc_sbr_2023, Page: 4, Page: 5]\n*   NBFC-Account Aggregator (NBFC-AA) [Doc: nbfc_sbr_2023, Page: 4, Page: 5]\n*   Non-Operative Financial Holding Company (NOFHC) [Doc: nbfc_sbr_2023, Page: 4, Page: 5]\n*   NBFCs that do not avail public funds and do not have any customer interface [Doc: nbfc_sbr_2023, Page: 4, Page: 5]",
+    "tools_called": [
+      "search_documents",
+      "search_documents",
+      "search_documents",
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system accurately identified the specific types of NBFCs that are mandated to remain in the Base Layer of the regulatory structure, directly answering the user's specific question."
       },
       "Tool Correctness": {
         "score": 1.0,
@@ -74,7 +103,168 @@
       "Answer Relevancy": {
         "score": 1.0,
         "passed": true,
-        "reason": "The score is 1.00 because the output directly and accurately addresses the specific regulatory question without any irrelevant information."
+        "reason": "The score is 1.00 because the response is perfectly relevant and directly addresses the input without any unnecessary or irrelevant information."
+      }
+    }
+  },
+  {
+    "question": "What is the Key Facts Statement (KFS) as defined in the RBC Directions 2025?",
+    "answer": "A Key Facts Statement (KFS) is a statement of key facts of a loan agreement, provided to the borrower in a standardised format using simple and easier to understand language [Doc: nbfc_rbc_2025, Page: 4]. The key facts of a loan agreement between a group of regulated entities or an NBFC and a borrower are considered legally significant and deterministic facts that satisfy the requirement to assist the borrower in making an informed financial decision [Doc: nbfc_rbc_2025, Page: 4, Page: 3].",
+    "tools_called": [
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system successfully identified the definition of the Key Facts Statement (KFS) and correctly cited the specific document requested (nbfc_rbc_2025) in the user's goal."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The score is 1.00 because the response perfectly addresses the input without any irrelevant information."
+      }
+    }
+  },
+  {
+    "question": "What language must an NBFC use when communicating with borrowers?",
+    "answer": "All communications to the borrower shall be in the vernacular language or a language as understood by the borrower [Doc: nbfc_rbc_2025, Page: 7, chunk_id: d6c48632-29fe-4c74-8f3c-4fc0484682ee; Doc: nbfc_rbc_2025, Page: 7, chunk_id: 2c46a0c9-5476-468d-9507-344015e24d07; Doc: nbfc_rbc_2025, Page: 7, chunk_id: 1c5291f5-ebf1-42c1-beef-dd1c784e4562]. Additionally, the Fair Practices Code shall preferably be in the vernacular language or a language as understood by the borrower [Doc: nbfc_rbc_2025, Page: 6, chunk_id: cfa6d12c-233e-433a-a94f-ee769930f6b8].",
+    "tools_called": [
+      "search_documents",
+      "search_documents",
+      "get_page",
+      "search_documents",
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system directly addressed the user's goal by identifying the specific language requirements for communications and the Fair Practices Code as per regulatory expectations."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The score is 1.00 because the response is perfectly relevant and directly addresses the input without any unnecessary or irrelevant information."
+      }
+    }
+  },
+  {
+    "question": "What does the Annual Percentage Rate (APR) include as defined in the RBC Directions 2025?",
+    "answer": "Annual Percentage Rate (APR) means the annual cost of credit to the borrower, which includes the interest rate and all other charges associated with the credit facility [Doc: nbfc_rbc_2025, Page: 3].",
+    "tools_called": [
+      "search_documents",
+      "search_documents",
+      "search_documents",
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system successfully found the specific definition requested and correctly identified the source document and page number as specified in the user goal."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The score is 1.00 because the response perfectly addresses the input without any irrelevant information."
+      }
+    }
+  },
+  {
+    "question": "When must an NBFC release securities held against a loan?",
+    "answer": "An NBFC shall release all securities upon the repayment of all dues or when the outstanding amount of the loan is realised, subject to any legitimate right or lien for any other claim they may have against the borrower [Doc: nbfc_rbc_2025, Page: 8]. If the NBFC intends to exercise a right of set off, the borrower must be provided with notice containing full particulars regarding the remaining claims and the conditions under which the NBFC is entitled to retain the securities until the relevant claim is settled or paid [Doc: nbfc_rbc_2025, Page: 8].",
+    "tools_called": [
+      "search_documents",
+      "search_documents",
+      "search_documents",
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system accurately and comprehensively addressed the user's goal by identifying the specific conditions for the release of securities (repayment of dues or realization of loan amount) and mentioning the relevant legal caveats regarding liens and set-off rights."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The score is 1.00 because the response directly and accurately addresses the input without any irrelevant information."
+      }
+    }
+  },
+  {
+    "question": "What is the Top Layer (NBFC-TL) under Scale Based Regulation and when does it get populated?",
+    "answer": "The Top Layer (NBFC-TL) is ideally expected to be empty [Doc: nbfc_sbr_2023, Page: 4, chunk_id: a6573436-f25c-4e40-9d30-56f5d7092908]. It can become populated if the Reserve Bank is of the opinion that there is a substantial increase in the potential systemic risk from specific NBFCs located in the Upper Layer [Doc: nbfc_sbr_2023, Page: 5, chunk_id: 9f2603ba-e37a-405d-8871-6d4c8d759753]. In such cases, these NBFCs shall move to the Top Layer from the Upper Layer [Doc: nbfc_sbr_2023, Page: 5, chunk_id: 9f2603ba-e37a-405d-8871-6d4c8d759753].",
+    "tools_called": [
+      "search_documents",
+      "search_documents",
+      "search_documents",
+      "get_page",
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system accurately defined the Top Layer (NBFC-TL) by explaining its nature (ideally empty) and correctly identified the specific condition for its population (RBI determination of substantial systemic risk from Upper Layer NBFCs)."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The score is 1.00 because the response perfectly addresses the input without any irrelevant information."
+      }
+    }
+  },
+  {
+    "question": "Which NBFCs must always remain in the Middle Layer under Scale Based Regulation?",
+    "answer": "Standalone Primary Dealer (SPD) and Infrastructure Debt Fund-Non-Banking Financial Company (IDF-NBFC) will always remain in the Middle Layer [Doc: nbfc_sbr_2023, Page: 5, chunk_id: d7613c2b-7572-4e67-8e9c-2a0b4020ff33].",
+    "tools_called": [
+      "search_documents",
+      "search_documents",
+      "search_documents",
+      "search_documents"
+    ],
+    "metrics": {
+      "Task Completion": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The system correctly identified the specific NBFCs (SPD and IDF-NBFC) that are mandated to remain in the Middle Layer under the Scale Based Regulation framework, directly answering the user's specific query."
+      },
+      "Tool Correctness": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "All expected tools ['search_documents'] were called (order not considered)."
+      },
+      "Answer Relevancy": {
+        "score": 1.0,
+        "passed": true,
+        "reason": "The score is 1.00 because the response is perfectly relevant and directly addresses the input without any unnecessary or irrelevant information."
       }
     }
   }

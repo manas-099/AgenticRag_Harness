@@ -69,6 +69,7 @@ try:
     from deepeval.test_case import LLMTestCase, ToolCall
     # pyrefly: ignore[missing-import]
     from deepeval.evaluate.configs import ErrorConfig
+    # pyrefly: ignore[missing-import]
     from deepeval.metrics import (
         TaskCompletionMetric,
         ToolCorrectnessMetric,
@@ -81,7 +82,9 @@ except ImportError:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
-# ─────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────
+# ─────────────────────────────────────────────
 def load_test_set(path: Path) -> list[dict]:
     if not path.exists():
         print(f"[ERROR] Test set not found: {path}")
@@ -228,7 +231,7 @@ def main():
 
     # 1. Load test set
     test_items = load_test_set(TEST_SET_PATH)
-    test_items = test_items[:3] 
+    test_items = test_items[:10] 
     total = len(test_items)
 
     # 2. Query agent sequentially (workers=1 to protect LM Studio)
