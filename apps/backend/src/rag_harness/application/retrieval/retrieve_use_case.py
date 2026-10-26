@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from rag_harness.application.retrieval.fusion_service import RetrievalFusionService
+from rag_harness.application.retrieval.mxbai_reranker import MxbaiReranker, MxbaiRerankerConfig
 from rag_harness.config.settings import RetrievalSettings
 from rag_harness.domain.exceptions import HarnessError, RetrievalError
 from rag_harness.domain.models import RetrievedChunk
@@ -53,16 +54,14 @@ class RetrieveUseCase:
         self.fusion_service = fusion_service
         self.embedder = embedder
         self.settings = settings
-
-    # BGE-base requires this prefix on queries (not on documents at index time).
-    # Without it query vectors land in a different region of the embedding space
-    # than indexed document vectors — recall drops ~30-50%.
-    _BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
+        self.reranker = MxbaiReranker(MxbaiRerankerConfig(top_k=self.settings.TOP_K_FINAL_RERANK))
 
     def _run_dense(self, query: str, filters: dict | None) -> _LegResult:
         try:
-            prefixed_query = self._BGE_QUERY_PREFIX + query
-            query_vector = self.embedder.encode([prefixed_query])[0]
+            # NomicEmbedder: pass task="search_query" so it uses the correct prefix.
+            # SentenceTransformerEmbedder (BGE): encode() ignores unknown kwargs,
+            # so this call is safe regardless of which embedder is injected.
+            query_vector = self.embedder.encode([query], task="search_query")[0]
             hits = self.vector_store.dense_search(query_vector, self.settings.TOP_K_DENSE, filters)
             return _LegResult(hits=hits)
         except Exception as e:
@@ -106,7 +105,7 @@ class RetrieveUseCase:
 
             fused = self.fusion_service.fuse(dense_hits, sparse_hits)
             deduped = self.fusion_service.deduplicate(fused)
-            reranked = self.fusion_service.rerank(query, deduped)
+            reranked = self.reranker.rerank(query=query, candidates=deduped)
 
             logger.info(f"Retrieval complete: {len(reranked)} final chunks")
             return reranked
