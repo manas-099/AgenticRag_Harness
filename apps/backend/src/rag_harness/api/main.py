@@ -2,7 +2,9 @@
 import logging
 from contextlib import asynccontextmanager
 
+# pyrefly: ignore[missing-import]
 from fastapi import FastAPI
+# pyrefly: ignore[missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 
 from rag_harness.api.v1.routers import documents, health, query
