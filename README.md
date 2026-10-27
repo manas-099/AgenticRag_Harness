@@ -483,6 +483,44 @@ confirming the right chunks are reaching generation. `faithfulness` at 0.973
 confirms the verification layer is doing its job: answers stay grounded in
 retrieved text.
 
+---
+
+### 🔬 BM25 Contribution Diagnostic (A/B Test)
+
+#### Why This Diagnostic Was Run
+In hybrid retrieval setups (Dense vector + BM25 sparse + Cross-Encoder rerank), sparse lexical search (BM25) is often kept in memory (`BM25Retriever`). Because in-memory indices reset upon server restarts, they represent a potential cold-start liability unless warmed up or persisted to disk.
+
+To objectively evaluate whether BM25 is genuinely contributing to recall or acting as dead weight, we ran an isolated A/B diagnostic on the exact same 50-sample evaluation set (`evals/test_set.jsonl`):
+- **Run A (Hybrid Baseline):** Dense (Nomic embed) + BM25 Sparse + Cross-Encoder Rerank
+- **Run B (Dense-Only):** BM25 disabled (`RETRIEVAL_TOP_K_SPARSE=0`), Dense + Cross-Encoder Rerank
+
+#### Dedicated Diagnostic Files & Locations
+| File | Path | Description |
+|------|------|-------------|
+| **Diagnostic Runner** | [`evals/bm25_diagnostic.py`](evals/bm25_diagnostic.py) | Executes parallelized multi-worker query sampling against `/api/v1/query/agentic` and runs Ragas `context_recall`. |
+| **Comparison Script** | [`evals/bm25_compare.py`](evals/bm25_compare.py) | Compares Run A and Run B JSON artifacts and computes recall delta and architectural recommendations. |
+| **Hybrid Result Artifact** | [`evals/results/bm25_diagnostic_hybrid.json`](evals/results/bm25_diagnostic_hybrid.json) | Saved benchmark output for the hybrid baseline (`context_recall`: **0.9365**). |
+| **Dense-Only Result Artifact** | [`evals/results/bm25_diagnostic_dense_only.json`](evals/results/bm25_diagnostic_dense_only.json) | Saved benchmark output for dense-only retrieval (`context_recall`: **0.7803**). |
+
+#### Diagnostic Results
+
+```
+============================================================
+  BM25 DIAGNOSTIC — COMPARISON
+============================================================
+  context_recall  HYBRID (dense+BM25+rerank) : 0.9365
+  context_recall  DENSE ONLY (dense+rerank)  : 0.7803
+  delta (hybrid - dense)                     : +0.1562
+============================================================
+```
+
+#### Observations & Conclusion
+- **Massive Recall Delta (+0.1562 / +15.6%)**: Disabling BM25 caused `context_recall` to drop sharply from **0.9365** to **0.7803**.
+- **Lexical Precision Is Essential**: In highly regulated, domain-specific corpora (such as NBFC, RBI circulars, statutory definitions, and exact section codes), dense embeddings alone fail to retrieve precise exact-match terms and alphanumeric tokens. BM25 reliably rescues these critical passages before cross-encoder reranking.
+- **Architectural Takeaway**: BM25 is **not dead weight**—it is a vital component of the retrieval pipeline. Consequently, resolving BM25 index persistence/cold-start is non-negotiable:
+  - **Implemented Protection**: Automatic startup warm-up via FastAPI lifespan hook (`scroll_all_chunks()` from Qdrant payloads into `BM25Retriever`).
+  - **Production Option**: Serialized disk cache (pickle/mmap) for instant startup on very large corpora.
+
 
 ---
 
