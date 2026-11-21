@@ -526,8 +526,7 @@ To objectively evaluate whether BM25 is genuinely contributing to recall or acti
 
 ## 🔭 Production Considerations
 
-**Section-title extraction uses regex-based heuristics**
-Currently detects markdown `#` headers — reliable on Docling-routed pages, no-op on plain-text (AnyDoc) pages. Metadata filtering degrades safely to unfiltered when no section is found. The natural next step is reading Docling's item type directly, which removes the dependency on markdown syntax entirely.
+
 
 **`InMemoryCache` is intentionally single-process**
 The cache interface is backend-agnostic — swapping to `RedisCache` (implementing the same interface) requires zero changes to calling code. Designed this way deliberately to keep local dev dependency-free.
